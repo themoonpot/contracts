@@ -1,0 +1,55 @@
+# Node modules
+/node_modules
+
+# Compilation output
+/dist
+
+# pnpm deploy output
+/bundle
+
+# Hardhat build artifacts
+/artifacts
+
+# Hardhat compilation support directory
+/cache
+
+# Hardhat 4 npm-dep extraction cache (rebuilt from node_modules + pnpm-lock.yaml)
+/.deps
+
+# Typechain output
+/types
+
+# Coverage reports
+/coverage
+/lcov.info
+
+# Foundry build output
+/out
+/cache_forge
+
+# Foundry script broadcast outputs
+/broadcast
+
+# Foundry / Anvil state
+.anvil-state
+
+# Script logs
+/logs
+
+# Local ABIs
+/contracts/abis
+
+# Ignition deployments
+/ignition/deployments
+
+# Environment files (commit `.env.example` only)
+.env
+.env.local
+.env.*.local
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo

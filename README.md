@@ -42,13 +42,13 @@ rounds):
 
 ### Core
 
-#### [`MoonpotToken.sol`](MoonpotToken.sol): `TMP`
+#### [`MoonpotToken.sol`](contracts/MoonpotToken.sol): `TMP`
 
 ERC20 (`"The Moonpot Token"`, `TMP`) with `Ownable2Step`. Only the
 one-time-set `manager` (the `MoonpotManager`) can `mint`. Anyone holding TMP
 can `burn` their own balance.
 
-#### [`MoonpotNFT.sol`](MoonpotNFT.sol): `TMPNFT`
+#### [`MoonpotNFT.sol`](contracts/MoonpotNFT.sol): `TMPNFT`
 
 ERC721A (`"The Moonpot NFT"`, `TMPNFT`) with `ERC721AQueryable` and
 `Ownable2Step`. Only the manager can `mintTo`. The round ID is stamped into
@@ -57,7 +57,7 @@ the ERC721A `extraData` on the first token of each batch and read back via
 be rotated by the owner (emits `BatchMetadataUpdate`) until `freezeBaseURI()`
 is called.
 
-#### [`MoonpotManager.sol`](MoonpotManager.sol)
+#### [`MoonpotManager.sol`](contracts/MoonpotManager.sol)
 
 Single source of truth. Owns the lifecycle of up to `MAX_ROUNDS = 28` rounds.
 
@@ -96,7 +96,7 @@ Single source of truth. Owns the lifecycle of up to `MAX_ROUNDS = 28` rounds.
   the hook to pair with the USDC at the current sqrt price (with a 1% buffer
   that the hook burns).
 
-#### [`MoonpotHook.sol`](MoonpotHook.sol)
+#### [`MoonpotHook.sol`](contracts/MoonpotHook.sol)
 
 Uniswap v4 hook (`BaseHook`) attached to the TMP/USDC pool. Implements
 `beforeInitialize` and `beforeSwap` (with delta + dynamic fee).
@@ -124,7 +124,7 @@ Uniswap v4 hook (`BaseHook`) attached to the TMP/USDC pool. Implements
   swap math (`FullMath`, `FixedPoint96`) to preview effective output, burn,
   and tax.
 
-#### [`AbstractMoonpotRound.sol`](AbstractMoonpotRound.sol)
+#### [`AbstractMoonpotRound.sol`](contracts/AbstractMoonpotRound.sol)
 
 Shared base for round contracts. Holds `roundId`, `manager`, `usdc`, immutable
 `PRICE / TOTAL_TOKENS / TOTAL_NFTS` and the three share components (validated
@@ -136,7 +136,7 @@ to sum exactly to `PRICE`). Tracks lifecycle state (`startTime`, `endTime`,
 `valueOf(tokenId)` computes `permute(tokenId % TOTAL_TOKENS, seed)` and looks
 up the resulting permutation index in the subclass's reward table.
 
-#### [`MoonpotRound1.sol`](MoonpotRound1.sol) … [`MoonpotRound5.sol`](MoonpotRound5.sol) (rounds 6–28 to follow)
+#### [`MoonpotRound1.sol`](contracts/MoonpotRound1.sol) … [`MoonpotRound5.sol`](contracts/MoonpotRound5.sol) (rounds 6–28 to follow)
 
 Concrete rounds. Each provides the constants for that round and a
 `getNFTClass(uint32 draw)` that maps a permutation index to a
@@ -167,13 +167,13 @@ The community share floats to `PRICE − $0.15` (company + liquidity stay flat
 at $0.10 + $0.05), so per-token reward-pool funding scales with price as the
 sale progresses.
 
-#### [`IMoonpotHook.sol`](IMoonpotHook.sol) / [`IMoonpotManager.sol`](IMoonpotManager.sol) / [`IMoonpotRound.sol`](IMoonpotRound.sol)
+#### [`IMoonpotHook.sol`](contracts/IMoonpotHook.sol) / [`IMoonpotManager.sol`](contracts/IMoonpotManager.sol) / [`IMoonpotRound.sol`](contracts/IMoonpotRound.sol)
 
 Interfaces consumed across the system.
 
 ### Library
 
-#### [`lib/TEAPermuter.sol`](lib/TEAPermuter.sol)
+#### [`contracts/lib/TEAPermuter.sol`](contracts/lib/TEAPermuter.sol)
 
 Format-preserving permutation built from a TEA-style Feistel cipher. Provides
 `permute9 / permute10 / permute14 / permute17 / permute20` (block sizes from
@@ -205,6 +205,147 @@ deploy ─▶ setManager(...) ─┤                        │
                                           claimNFT / claimNFTs ──▶ USDC
                                                     │
                               manager.start() ──────┴──▶ round N+1 …
+```
+
+## Development
+
+The repo ships a dual Hardhat 4 + Foundry toolchain so the same Solidity sources can be compiled, tested, and deployed by either runner. Foundry is used for the unit test suite; Hardhat 4 + Ignition is used for deployments.
+
+### Prerequisites
+
+- **Node.js** ≥ 20 ([install](https://nodejs.org/))
+- **pnpm** ≥ 9 (`npm install -g pnpm`)
+- **Foundry** (`forge`, `cast`, `anvil`) ([install](https://book.getfoundry.sh/getting-started/installation))
+
+### Install
+
+```sh
+pnpm install        # JS deps + Foundry-side npm packages (@openzeppelin, @chainlink, erc721a)
+```
+
+The `lib/v4-hooks-public/` submodule contents are committed in-tree (no `git submodule init` required).
+
+### Build
+
+```sh
+forge build         # Foundry build → `out/`
+pnpm hardhat build  # Hardhat 4 build → `artifacts/`
+```
+
+Both runners share the same `solc 0.8.28` profile with `viaIR: true`, optimizer enabled (200 runs), and `bytecodeHash: none`.
+
+### Test
+
+The test suite is Foundry-based (`test/*.t.sol` + `test/fork/*.fork.t.sol`) and ships with **198 tests** covering every Moonpot contract, including the v4-pool-state-dependent paths in `MoonpotHook` via Base-mainnet fork tests.
+
+```sh
+forge test                                                  # full suite (unit + fork)
+forge test --no-match-path "test/fork/*"                    # unit tests only (no network)
+forge test --match-path test/MoonpotManager.buyFor.t.sol    # single file
+forge test --match-test testBuyForHappyPath -vvv            # single test, verbose
+forge test --gas-report                                     # gas snapshots
+```
+
+Fork tests under [`test/fork/`](test/fork/) use the public Base RPC by default. Override with an environment variable for higher throughput or a paid provider:
+
+```sh
+BASE_RPC_URL=https://base-mainnet.g.alchemy.com/v2/<key> forge test
+BASE_FORK_BLOCK=33000000 forge test --match-path "test/fork/*"
+```
+
+If no network is available the fork-test `setUp()` calls `vm.skip(true)`, so the rest of the suite still passes.
+
+Coverage:
+
+```sh
+forge coverage --ir-minimum --report summary
+```
+
+### Test layout
+
+```
+test/
+├── Fixtures.sol                              # abstract BaseFixture + InitializedFixture
+├── mocks/
+│   └── MockPermit2.sol                       # minimal Permit2 stub for unit tests
+├── MockUSDT.t.sol                            # pre-existing
+├── MoonpotToken.t.sol                        # pre-existing
+├── MoonpotNFT.t.sol                          # pre-existing
+├── TEAPermuter.t.sol                         # pre-existing (permutation bijection proofs)
+├── MoonpotRound1.t.sol                       # reward-tier table, valueOf, constructor reverts
+├── AbstractMoonpotRound.t.sol                # lifecycle, notify*, releaseReward, onlyManager
+├── MoonpotManager.access.t.sol               # admin setters + reverts (no v4 needed)
+├── MoonpotHook.setters.t.sol                 # setDefenseParams bounds, setManager one-shot
+├── MoonpotHook.quotes.t.sol                  # _calculateTax + _computeMaxTmpSell via harness
+├── MoonpotManager.init.t.sol                 # init happy + 4 reverts
+├── MoonpotManager.buyFor.t.sol               # happy + 6 reverts, share routing, VRF request
+├── MoonpotManager.vrf.t.sol                  # fulfillRandomWords dispatch
+├── MoonpotManager.processBuy.t.sol           # Bernoulli NFT allocation
+├── MoonpotManager.reDraw.t.sol               # VRF re-request (timeout + owner)
+├── MoonpotManager.claim.t.sol                # single + batched + 4 reverts
+├── MoonpotManager.liquidityInjection.t.sol   # 25k checkpoint crossings
+├── MoonpotManager.integration.t.sol          # E2E: init → buy → VRF → process → claim
+├── Fixtures.smoke.t.sol                      # fixture wiring sanity
+└── fork/                                     # Base-mainnet fork tests (real v4)
+    ├── ForkFixture.sol                       # deploys fresh Moonpot system into a Base fork
+    ├── ForkRouter.sol                        # minimal v4 swap helper (IUnlockCallback)
+    ├── ForkFixture.smoke.fork.t.sol          # fork wiring sanity
+    ├── MoonpotHook.beforeSwap.fork.t.sol     # real swaps: buy tax, sell clamp + burn, exact-output revert, tax ramp
+    ├── MoonpotHook.injectLiquidity.fork.t.sol # manager-triggered LP injection via real PositionManager
+    └── MoonpotHook.harvestFees.fork.t.sol    # fee accrual + harvest, preserves pendingLiquidity
+```
+
+The off-fork suite uses a **mocked v4 setup** (stub PoolManager + `vm.mockCall` on `extsload`, mocked PositionManager, MockPermit2). This avoids solc-version conflicts that come with importing v4-periphery (pinned to 0.8.26) and Permit2 (pinned to 0.8.17) directly from 0.8.28 test contracts. The Hook's pool-state-dependent paths (`beforeSwap` floor defense + tax ramp, `injectLiquidity` via `unlock` callback, `harvestFees`) are covered separately in fork mode against the real Uniswap v4 PoolManager, PositionManager, and Permit2 on Base mainnet.
+
+### Deploy
+
+Deployments use **Hardhat Ignition** modules in [`ignition/modules/`](ignition/modules/). Network parameters live in [`ignition/parameters/`](ignition/parameters/).
+
+Set up secrets (encrypted at rest by `hardhat-keystore`):
+
+```sh
+pnpm hardhat keystore set BASE_RPC_URL
+pnpm hardhat keystore set WALLET_PRIVATE_KEY
+pnpm hardhat keystore set ETHERSCAN_API_KEY
+```
+
+Or supply them as env vars (see [`.env.example`](.env.example)).
+
+Production flow on Base:
+
+```sh
+# 1. Mine the hook salt so its deployed address has the v4 hook-flag bits
+pnpm hardhat run scripts/mine-hook-salt.ts
+
+# 2. Deploy the hook at the mined address
+pnpm hardhat ignition deploy ignition/modules/HookOnlySystem.ts \
+  --network base \
+  --parameters ignition/parameters/mainnet.json
+
+# 3. Deploy the rest of the system (manager, NFT, rounds, wire everything)
+pnpm hardhat ignition deploy ignition/modules/MoonpotSystem.ts \
+  --network base \
+  --parameters ignition/parameters/mainnet.json
+```
+
+Smaller standalone modules (`TMPOnlySystem`, `MockUSDCOnly`, `MockVRFOnly`) are available for partial / testnet deployments.
+
+### Project layout
+
+```
+.
+├── contracts/                  # production Solidity sources
+│   ├── *.sol                   # Manager, Hook, Token, NFT, AbstractRound, Round1..5
+│   ├── lib/TEAPermuter.sol     # Feistel permutation library
+│   └── mocks/                  # local test doubles (MockUSDC, MockVRFCoordinator, ...)
+├── test/                       # Foundry tests (see above)
+├── scripts/                    # operational + diagnostic TS scripts
+├── ignition/                   # Hardhat Ignition deploy modules + parameters
+├── lib/v4-hooks-public/        # Uniswap v4 + Permit2 sources (vendored submodule)
+├── foundry.toml
+├── hardhat.config.ts
+├── remappings.txt              # shared Foundry remappings
+└── .env.example
 ```
 
 ## Dependencies
