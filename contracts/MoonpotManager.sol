@@ -72,6 +72,7 @@ contract MoonpotManager is
     uint256 public constant MAX_PURCHASE_LIMIT = 10_000;
     uint256 public constant VRF_TIMEOUT = 24 hours;
     uint8 public constant MAX_ROUNDS = 28;
+    uint32 public constant MIN_VRF_CALLBACK_GAS_LIMIT = 100_000;
 
     address public _company;
     uint256 public _currentRoundId;
@@ -140,6 +141,7 @@ contract MoonpotManager is
     error InvalidNFTCount();
     error InvalidScannedCount();
     error InvalidTickBound();
+    error InvalidVRFParams();
     error MaxPurchaseLimitExceeded();
     error NotInitialized();
     error NotOwner();
@@ -665,6 +667,8 @@ contract MoonpotManager is
         uint256 subId,
         uint32 callbackGasLimit
     ) external onlyOwner {
+        if (callbackGasLimit < MIN_VRF_CALLBACK_GAS_LIMIT)
+            revert InvalidVRFParams();
         vrfCallbackGasLimit = callbackGasLimit;
         vrfKeyHash = keyHash;
         vrfSubId = subId;

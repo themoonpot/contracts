@@ -185,6 +185,15 @@ contract MoonpotManagerAccessTest is Test {
         manager.setVRFParams(bytes32(0), 1, 100_000);
     }
 
+    function testSetVRFParamsRevertsBelowMinGasLimit() public {
+        // Too-low callback gas would make every VRF fulfillment revert (F-2026-17063).
+        vm.expectRevert(MoonpotManager.InvalidVRFParams.selector);
+        manager.setVRFParams(bytes32(uint256(0xBB)), 1, 99_999);
+
+        manager.setVRFParams(bytes32(uint256(0xBB)), 1, 100_000); // floor is accepted
+        assertEq(manager.vrfCallbackGasLimit(), 100_000);
+    }
+
     /* --------------------------------- retryRoundReveal ------------------------------ */
 
     function testRetryRoundRevealRevertsOnMissingRound() public {
