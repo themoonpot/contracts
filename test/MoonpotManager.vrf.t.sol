@@ -38,7 +38,7 @@ contract MoonpotManagerVRFTest is InitializedFixture {
         (
             , , , , ,
             uint256 seed,
-            , , bool isDrawn, bool isFilled
+            bool isDrawn, bool isFilled
         ) = mp.purchases(purchaseId);
         assertTrue(isDrawn, "purchase not marked drawn");
         assertFalse(isFilled, "purchase should not yet be filled");
@@ -58,7 +58,7 @@ contract MoonpotManagerVRFTest is InitializedFixture {
         (uint256 reqId, uint256 purchaseId) = _commitPurchase(50);
 
         vrf.fulfill(reqId);
-        (, , , , , uint256 seed1, , , bool isDrawn1, ) = mp.purchases(purchaseId);
+        (, , , , , uint256 seed1, bool isDrawn1, ) = mp.purchases(purchaseId);
 
         // Manually re-fulfill via low-level call (mock deletes the req after success)
         // Use vm.prank as vrf coordinator + the manager's rawFulfillRandomWords path
@@ -72,7 +72,7 @@ contract MoonpotManagerVRFTest is InitializedFixture {
         );
         assertTrue(ok, "second fulfill should not revert");
 
-        (, , , , , uint256 seed2, , , bool isDrawn2, ) = mp.purchases(purchaseId);
+        (, , , , , uint256 seed2, bool isDrawn2, ) = mp.purchases(purchaseId);
         assertEq(seed1, seed2, "seed must not change on re-fulfillment");
         assertTrue(isDrawn2);
     }

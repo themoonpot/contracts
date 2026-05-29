@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "./Fixtures.sol";
+import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 
 /// @notice Tests the Bernoulli NFT-allocation in `processBuy`. The math is:
 ///     for i in [0, tmpAmount):
@@ -23,7 +24,7 @@ contract MoonpotManagerProcessBuyTest is InitializedFixture {
         purchaseId = mp.lastPurchaseId();
         uint256 reqId = vrf.latestRequestId();
         vrf.fulfill(reqId);
-        (, , , , , seed, , , , ) = mp.purchases(purchaseId);
+        (, , , , , seed, , ) = mp.purchases(purchaseId);
     }
 
     /// @dev Mirror of MoonpotManager.processBuy's Bernoulli loop.
@@ -73,7 +74,7 @@ contract MoonpotManagerProcessBuyTest is InitializedFixture {
         assertEq(mp.nftsMinted(), expected);
 
         // Purchase marked filled with the right count
-        (, , uint256 nftAmount, , , , , , bool isDrawn, bool isFilled) = mp.purchases(purchaseId);
+        (, , uint256 nftAmount, , , , bool isDrawn, bool isFilled) = mp.purchases(purchaseId);
         assertTrue(isFilled);
         assertTrue(isDrawn);
         assertEq(nftAmount, expected);
@@ -86,7 +87,7 @@ contract MoonpotManagerProcessBuyTest is InitializedFixture {
         uint256 expected = _expectedNFTs(tokens, seed, round1.TOTAL_TOKENS(), round1.TOTAL_NFTS());
 
         mp.processBuy(purchaseId);
-        (, , uint256 nftAmount, , , , , , , ) = mp.purchases(purchaseId);
+        (, , uint256 nftAmount, , , , , ) = mp.purchases(purchaseId);
         assertEq(nftAmount, expected);
     }
 
@@ -105,7 +106,7 @@ contract MoonpotManagerProcessBuyTest is InitializedFixture {
         (uint256 purchaseId, ) = _commitAndDraw(50);
         vm.prank(address(0xDEAD));
         mp.processBuy(purchaseId);
-        (, , , , , , , , , bool isFilled) = mp.purchases(purchaseId);
+        (, , , , , , , bool isFilled) = mp.purchases(purchaseId);
         assertTrue(isFilled);
     }
 
@@ -149,9 +150,63 @@ contract MoonpotManagerProcessBuyTest is InitializedFixture {
 
         // No NFTs minted to buyer; scanned still increments
         assertEq(nft.balanceOf(buyer), 0);
-        (, , uint256 nftAmount, , , , , , , bool isFilled) = mp.purchases(purchaseId);
+        (, , uint256 nftAmount, , , , , bool isFilled) = mp.purchases(purchaseId);
         assertEq(nftAmount, 0);
         assertTrue(isFilled);
         assertEq(round1.scannedCount(), 10);
+    }
+
+    /* ------------------ F-2026-17058: concurrent overminting guard ------------------- */
+
+    /// @notice Concurrent buys (committed before either is processed) must not
+    /// mint past TOTAL_NFTS. Pre-fix, both snapshot a stale nftsMintedBefore and
+    /// overshoot the cap; live remaining-state bounds keep the total capped.
+    function testConcurrentBuysCannotOvermintBeyondNFTCap() public {
+        uint256 TOTAL_TOKENS = round1.TOTAL_TOKENS();
+        uint32 TOTAL_NFTS = round1.TOTAL_NFTS();
+
+        address alice = address(0xA11CE);
+        address bob = address(0xB0B);
+        usdc.transfer(alice, 1_000_000e6);
+        usdc.transfer(bob, 1_000_000e6);
+        vm.prank(alice);
+        usdc.approve(address(mp), type(uint256).max);
+        vm.prank(bob);
+        usdc.approve(address(mp), type(uint256).max);
+
+        // The near-sellout pre-seed trips a liquidity-injection checkpoint on
+        // the first buy; stub the pool read + hook injection.
+        bytes32 slot0 = bytes32(uint256(TickMath.getSqrtPriceAtTick(-260_000)));
+        vm.mockCall(address(poolManager), abi.encodeWithSignature("extsload(bytes32)"), abi.encode(slot0));
+        vm.mockCall(address(hook), abi.encodeWithSelector(MoonpotHook.injectLiquidity.selector), bytes(""));
+
+        // 12 tokens from sellout, nftsMinted still 0 -> stale snapshots below.
+        vm.startPrank(address(mp));
+        round1.notifyPurchase(TOTAL_TOKENS - 12);
+        round1.notifyScanned(TOTAL_TOKENS - 12);
+        vm.stopPrank();
+
+        vm.prank(alice);
+        mp.buyFor(alice, 6 * round1.PRICE(), 0, 0, bytes32(0), bytes32(0));
+        uint256 alicePid = mp.lastPurchaseId();
+        uint256 aliceReq = vrf.latestRequestId();
+
+        vm.prank(bob);
+        mp.buyFor(bob, 5 * round1.PRICE(), 0, 0, bytes32(0), bytes32(0));
+        uint256 bobPid = mp.lastPurchaseId();
+        uint256 bobReq = vrf.latestRequestId();
+
+        // An interleaved processed purchase leaves only 3 NFTs.
+        vm.prank(address(mp));
+        round1.notifyNFTMinted(TOTAL_NFTS - 3);
+
+        vrf.fulfill(aliceReq);
+        vrf.fulfill(bobReq);
+
+        mp.processBuy(alicePid);
+        mp.processBuy(bobPid);
+
+        assertLe(round1.getNFTsMinted(), TOTAL_NFTS, "round overminted beyond TOTAL_NFTS");
+        assertLe(nft.balanceOf(alice) + nft.balanceOf(bob), 3, "buyers received more NFTs than remained");
     }
 }

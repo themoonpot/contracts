@@ -58,8 +58,6 @@ contract MoonpotManagerBuyForTest is InitializedFixture {
             uint256 roundId,
             ,
             uint256 seed,
-            ,
-            uint32 nftsMintedBefore,
             bool isDrawn,
             bool isFilled
         ) = mp.purchases(1);
@@ -68,7 +66,6 @@ contract MoonpotManagerBuyForTest is InitializedFixture {
         assertEq(nftAmount, 0);
         assertEq(roundId, 1);
         assertEq(seed, 0);
-        assertEq(nftsMintedBefore, 0);
         assertFalse(isDrawn);
         assertFalse(isFilled);
     }

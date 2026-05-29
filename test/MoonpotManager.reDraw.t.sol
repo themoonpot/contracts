@@ -42,13 +42,13 @@ contract MoonpotManagerReDrawTest is InitializedFixture {
     function testOwnerReDrawUpdatesRequestTimestamp() public {
         (uint256 purchaseId, ) = _commitOnly(10);
         uint256 initialTs;
-        ( , , , , initialTs, , , , , ) = mp.purchases(purchaseId);
+        ( , , , , initialTs, , , ) = mp.purchases(purchaseId);
 
         vm.warp(block.timestamp + 1 hours);
         mp.reDrawPurchase(purchaseId);
 
         uint256 newTs;
-        ( , , , , newTs, , , , , ) = mp.purchases(purchaseId);
+        ( , , , , newTs, , , ) = mp.purchases(purchaseId);
         assertEq(newTs, initialTs + 1 hours);
     }
 

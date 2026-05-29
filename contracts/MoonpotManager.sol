@@ -43,8 +43,6 @@ contract MoonpotManager is
         uint256 roundId;
         uint256 requestTimestamp;
         uint256 seed;
-        uint256 soldBefore;
-        uint32 nftsMintedBefore;
         bool isDrawn;
         bool isFilled;
     }
@@ -451,8 +449,6 @@ contract MoonpotManager is
             roundId: _currentRoundId,
             requestTimestamp: block.timestamp,
             seed: 0,
-            soldBefore: soldBefore,
-            nftsMintedBefore: round.getNFTsMinted(),
             isDrawn: false,
             isFilled: false
         });
@@ -479,8 +475,10 @@ contract MoonpotManager is
         if (!p.isDrawn) revert SeedNotDrawn();
         if (p.isFilled) revert AlreadyFilled();
 
-        uint256 drawsLeft = round.getTokenCount() - p.soldBefore;
-        uint32 nftsLeft = round.getNFTCount() - p.nftsMintedBefore;
+        // Live counters, not a buy-time snapshot: caps total mints at
+        // TOTAL_NFTS regardless of buy/process order (F-2026-17058).
+        uint256 drawsLeft = round.getTokenCount() - round.getScannedCount();
+        uint32 nftsLeft = round.getNFTCount() - round.getNFTsMinted();
         uint256 nftsFound = 0;
 
         if (nftsLeft > 0 && drawsLeft > 0) {
