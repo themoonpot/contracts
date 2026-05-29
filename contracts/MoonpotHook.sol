@@ -38,6 +38,9 @@ contract MoonpotHook is BaseHook, Ownable, ReentrancyGuard, IUnlockCallback {
 
     uint8 private constant ACTION_INJECT_LIQUIDITY = 0;
 
+    // Hard ceiling on the defense tax (90%); keeps an exit open even at max penalty.
+    uint24 public constant MAX_DEFENSE_TAX = 900_000;
+
     IPositionManager public immutable posm;
     IPermit2 public immutable permit2;
     IERC20 public immutable usdc;
@@ -561,7 +564,7 @@ contract MoonpotHook is BaseHook, Ownable, ReentrancyGuard, IUnlockCallback {
     ) external onlyOwner {
         if (_base > _max) revert InvalidDefenseParams();
         if (_taxRampTicks <= 0) revert InvalidDefenseParams();
-        if (_max > 1_000_000) revert InvalidDefenseParams();
+        if (_max > MAX_DEFENSE_TAX) revert InvalidDefenseParams();
 
         baseDefenseTax = _base;
         maxDefenseTax = _max;

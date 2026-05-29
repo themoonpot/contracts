@@ -140,9 +140,14 @@ contract MoonpotHookSettersTest is Test {
         hook.setDefenseParams(1_000, 100_000, -1);
     }
 
-    function testSetDefenseParamsRevertsWhenMaxOver100Pct() public {
+    function testSetDefenseParamsRevertsAboveCap() public {
+        // Ceiling is 90% (900_000): above it reverts, at it is accepted, so a
+        // seller can always exit the swappable portion with some return (F-2026-17060).
         vm.expectRevert(MoonpotHook.InvalidDefenseParams.selector);
-        hook.setDefenseParams(1_000, 1_000_001, 1_000);
+        hook.setDefenseParams(1_000, 900_001, 1_000);
+
+        hook.setDefenseParams(1_000, 900_000, 1_000);
+        assertEq(hook.maxDefenseTax(), 900_000);
     }
 
     function testSetDefenseParamsBoundaryEqualMax() public {
