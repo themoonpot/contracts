@@ -38,6 +38,15 @@ contract TestableHook is MoonpotHook {
         return _defenseTax(usdcIsCurrency0, currentTick);
     }
 
+    function exposed_quoteBuyTmpOut(
+        bool usdcIsCurrency0,
+        uint160 sqrtPriceX96,
+        uint128 liquidity,
+        uint256 amountInAfterFee
+    ) external pure returns (uint256) {
+        return _quoteBuyTmpOut(usdcIsCurrency0, sqrtPriceX96, liquidity, amountInAfterFee);
+    }
+
     function exposed_computeMaxTmpSell(bool usdcIsCurrency0, uint160 sqrtPriceX96)
         external
         view
@@ -232,5 +241,22 @@ contract MoonpotHookQuotesTest is Test {
 
         // Linear-ish in liquidity (FullMath path)
         assertApproxEqRel(big, small * 10, 0.001e18); // within 0.1%
+    }
+
+    /* --------------------------- quoteBuy: F-2026-17471 ------------------------------ */
+
+    function testQuoteBuyTmpOutWhenUsdcIsCurrency0() public view {
+        uint160 sqrtP = TickMath.getSqrtPriceAtTick(0); // price 1 (Q96)
+        uint128 liquidity = 1e24;
+        uint256 amountIn = 1e9;
+
+        uint256 outC0 = hook.exposed_quoteBuyTmpOut(true, sqrtP, liquidity, amountIn);
+        uint256 outC1 = hook.exposed_quoteBuyTmpOut(false, sqrtP, liquidity, amountIn);
+
+        // At price 1 with deep liquidity the output ~= input and must be non-zero.
+        assertGt(outC0, 0, "usdc-currency0 quote must not be zero");
+        assertApproxEqRel(outC0, amountIn, 0.001e18, "usdc-currency0 quote ~= amountIn at price 1");
+        // ...and must agree with the already-correct usdc-currency1 branch.
+        assertApproxEqRel(outC0, outC1, 0.001e18, "both token orderings agree at price 1");
     }
 }

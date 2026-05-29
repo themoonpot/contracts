@@ -367,22 +367,36 @@ contract MoonpotHook is BaseHook, Ownable, ReentrancyGuard, IUnlockCallback {
             1_000_000
         );
 
+        tmpOut = _quoteBuyTmpOut(
+            usdcIsCurrency0,
+            sqrtPriceX96,
+            liquidity,
+            amountInAfterFee
+        );
+    }
+
+    function _quoteBuyTmpOut(
+        bool usdcIsCurrency0,
+        uint160 sqrtPriceX96,
+        uint128 liquidity,
+        uint256 amountInAfterFee
+    ) internal pure returns (uint256 tmpOut) {
         if (usdcIsCurrency0) {
+            // Canonical token0 exact-input (matches v4-core SqrtPriceMath):
+            // denominator is (liquidity << 96) + amountIn * sqrtP, with no extra
+            // /Q96 (which would make the term negligible and truncate output to 0).
             uint256 liquidityQ96 = uint256(liquidity) << 96;
             uint256 denominator = liquidityQ96 +
-                FullMath.mulDiv(
-                    amountInAfterFee,
-                    sqrtPriceX96,
-                    FixedPoint96.Q96
-                );
+                amountInAfterFee *
+                sqrtPriceX96;
 
-            if (denominator == 0) return (0, tax);
+            if (denominator == 0) return 0;
 
             uint160 sqrtPriceNew = uint160(
                 FullMath.mulDiv(liquidityQ96, sqrtPriceX96, denominator)
             );
 
-            if (sqrtPriceNew >= sqrtPriceX96) return (0, tax);
+            if (sqrtPriceNew >= sqrtPriceX96) return 0;
 
             tmpOut = FullMath.mulDiv(
                 liquidity,
