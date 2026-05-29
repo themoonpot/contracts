@@ -127,7 +127,8 @@ contract MoonpotManager is
     event VRFParamsSet(
         bytes32 keyHash,
         uint256 subId,
-        uint256 callbackGasLimit
+        uint256 callbackGasLimit,
+        uint16 confirmations
     );
     event PendingLiquidityUpdated(uint256 newPending);
 
@@ -665,14 +666,17 @@ contract MoonpotManager is
     function setVRFParams(
         bytes32 keyHash,
         uint256 subId,
-        uint32 callbackGasLimit
+        uint32 callbackGasLimit,
+        uint16 confirmations
     ) external onlyOwner {
         if (callbackGasLimit < MIN_VRF_CALLBACK_GAS_LIMIT)
             revert InvalidVRFParams();
+        if (confirmations == 0) revert InvalidVRFParams();
         vrfCallbackGasLimit = callbackGasLimit;
         vrfKeyHash = keyHash;
         vrfSubId = subId;
-        emit VRFParamsSet(keyHash, subId, callbackGasLimit);
+        vrfConfirmations = confirmations;
+        emit VRFParamsSet(keyHash, subId, callbackGasLimit, confirmations);
     }
 
     function setCompany(address newCompany) external onlyOwner {

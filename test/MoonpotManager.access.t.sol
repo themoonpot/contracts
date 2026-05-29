@@ -169,29 +169,36 @@ contract MoonpotManagerAccessTest is Test {
         bytes32 newKey = bytes32(uint256(0xBB));
         uint256 newSub = 1234;
         uint32 newGas = 500_000;
+        uint16 newConf = 5;
 
         vm.expectEmit(false, false, false, true, address(manager));
-        emit MoonpotManager.VRFParamsSet(newKey, newSub, newGas);
-        manager.setVRFParams(newKey, newSub, newGas);
+        emit MoonpotManager.VRFParamsSet(newKey, newSub, newGas, newConf);
+        manager.setVRFParams(newKey, newSub, newGas, newConf);
 
         assertEq(manager.vrfKeyHash(), newKey);
         assertEq(manager.vrfSubId(), newSub);
         assertEq(manager.vrfCallbackGasLimit(), newGas);
+        assertEq(manager.vrfConfirmations(), newConf);
     }
 
     function testSetVRFParamsOnlyOwner() public {
         vm.expectRevert();
         vm.prank(stranger);
-        manager.setVRFParams(bytes32(0), 1, 100_000);
+        manager.setVRFParams(bytes32(0), 1, 100_000, 3);
     }
 
     function testSetVRFParamsRevertsBelowMinGasLimit() public {
         // Too-low callback gas would make every VRF fulfillment revert (F-2026-17063).
         vm.expectRevert(MoonpotManager.InvalidVRFParams.selector);
-        manager.setVRFParams(bytes32(uint256(0xBB)), 1, 99_999);
+        manager.setVRFParams(bytes32(uint256(0xBB)), 1, 99_999, 3);
 
-        manager.setVRFParams(bytes32(uint256(0xBB)), 1, 100_000); // floor is accepted
+        manager.setVRFParams(bytes32(uint256(0xBB)), 1, 100_000, 3); // floor is accepted
         assertEq(manager.vrfCallbackGasLimit(), 100_000);
+    }
+
+    function testSetVRFParamsRevertsOnZeroConfirmations() public {
+        vm.expectRevert(MoonpotManager.InvalidVRFParams.selector);
+        manager.setVRFParams(bytes32(uint256(0xBB)), 1, 200_000, 0);
     }
 
     /* --------------------------------- retryRoundReveal ------------------------------ */
