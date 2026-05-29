@@ -76,4 +76,13 @@ contract MoonpotNFT is ERC721AQueryable, Ownable2Step {
     function _baseURI() internal view override returns (string memory) {
         return _base;
     }
+
+    // Keep the roundId stored in extraData across transfers; clear only on burn.
+    function _extraData(
+        address,
+        address to,
+        uint24 previousExtraData
+    ) internal view virtual override returns (uint24) {
+        return to == address(0) ? 0 : previousExtraData;
+    }
 }

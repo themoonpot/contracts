@@ -96,4 +96,29 @@ contract MoonpotNFTTest is Test {
 
         assertEq(afterVersion, beforeVersion);
     }
+
+    /* ------------------ F-2026-17212: roundId survives transfers --------------------- */
+
+    function testRoundIdPersistsAfterTransfer() public {
+        nft.mintTo(alice, 1, 1);
+        assertEq(nft.getRound(0), 1);
+
+        vm.prank(alice);
+        nft.transferFrom(alice, bob, 0);
+
+        assertEq(nft.ownerOf(0), bob);
+        assertEq(nft.getRound(0), 1);
+    }
+
+    function testRoundIdPersistsAfterTransfer_BatchMint() public {
+        nft.mintTo(alice, 3, 1);
+
+        vm.prank(alice);
+        nft.transferFrom(alice, bob, 1);
+
+        assertEq(nft.ownerOf(1), bob);
+        assertEq(nft.getRound(0), 1);
+        assertEq(nft.getRound(1), 1);
+        assertEq(nft.getRound(2), 1);
+    }
 }
