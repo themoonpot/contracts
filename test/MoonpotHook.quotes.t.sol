@@ -34,6 +34,10 @@ contract TestableHook is MoonpotHook {
         return _calculateTax(ticksAboveFloor);
     }
 
+    function exposed_defenseTax(bool usdcIsCurrency0, int24 currentTick) external view returns (uint24) {
+        return _defenseTax(usdcIsCurrency0, currentTick);
+    }
+
     function exposed_computeMaxTmpSell(bool usdcIsCurrency0, uint160 sqrtPriceX96)
         external
         view
@@ -134,6 +138,33 @@ contract MoonpotHookQuotesTest is Test {
         assertEq(hook.exposed_calculateTax(1_000), 1_000);
         // midpoint of new ramp
         assertEq(hook.exposed_calculateTax(500), 50_500);
+    }
+
+    /* ------------------ _defenseTax: F-2026-17059 token-ordering ---------------------- */
+    // When usdc is currency0 a higher pool tick = LOWER TMP price, so the
+    // ticks-above-floor sign must be inverted before feeding _calculateTax.
+
+    function testDefenseTaxUsdcCurrency0_belowFloorChargesMaxTax() public {
+        hook.setManager(address(this));
+        hook.setCurrentFloorTick(1_000);
+        // usdc is currency0: TMP below floor => pool tick ABOVE floor tick.
+        assertEq(hook.exposed_defenseTax(true, 3_000), hook.maxDefenseTax());
+    }
+
+    function testDefenseTaxUsdcCurrency0_aboveFloorChargesBaseTax() public {
+        hook.setManager(address(this));
+        hook.setCurrentFloorTick(1_000);
+        // usdc is currency0: TMP well above floor => pool tick far BELOW floor tick.
+        assertEq(hook.exposed_defenseTax(true, -4_000), hook.baseDefenseTax());
+    }
+
+    function testDefenseTaxUsdcCurrency1_matchesRawRamp() public {
+        hook.setManager(address(this));
+        hook.setCurrentFloorTick(1_000);
+        // tmp is currency0 (no inversion): tax tracks (currentTick - floor) directly.
+        assertEq(hook.exposed_defenseTax(false, 1_000), hook.maxDefenseTax()); // at floor
+        assertEq(hook.exposed_defenseTax(false, 3_000), hook.exposed_calculateTax(2_000));
+        assertEq(hook.exposed_defenseTax(false, 6_000), hook.baseDefenseTax()); // far above
     }
 
     /* --------------------------------- _computeMaxTmpSell ----------------------------- */

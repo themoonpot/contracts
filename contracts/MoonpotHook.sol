@@ -192,8 +192,7 @@ contract MoonpotHook is BaseHook, Ownable, ReentrancyGuard, IUnlockCallback {
             key.toId()
         );
 
-        int24 ticksAboveFloor = currentTick - currentFloorTick;
-        uint24 tax = _calculateTax(ticksAboveFloor);
+        uint24 tax = _defenseTax(usdcIsCurrency0, currentTick);
 
         uint24 feeWithFlag = tax > 0
             ? (tax | LPFeeLibrary.DYNAMIC_FEE_FLAG)
@@ -307,8 +306,7 @@ contract MoonpotHook is BaseHook, Ownable, ReentrancyGuard, IUnlockCallback {
             tmpBurned = tmpAmount - maxSell;
         }
 
-        int24 ticksAboveFloor = currentTick - currentFloorTick;
-        tax = _calculateTax(ticksAboveFloor);
+        tax = _defenseTax(usdcIsCurrency0, currentTick);
     }
 
     function quoteBuy(
@@ -410,6 +408,17 @@ contract MoonpotHook is BaseHook, Ownable, ReentrancyGuard, IUnlockCallback {
         if (usdcFees > 0 || tmpFees > 0) {
             emit FeesHarvested(usdcFees, tmpFees);
         }
+    }
+
+    function _defenseTax(
+        bool usdcIsCurrency0,
+        int24 currentTick
+    ) internal view returns (uint24) {
+        int24 ticksAboveFloor = currentTick - currentFloorTick;
+        // When usdc is currency0 a higher tick means a lower TMP price, so the
+        // distance-above-floor is inverted relative to TMP price (F-2026-17059).
+        if (usdcIsCurrency0) ticksAboveFloor = -ticksAboveFloor;
+        return _calculateTax(ticksAboveFloor);
     }
 
     function _calculateTax(
