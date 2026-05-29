@@ -693,9 +693,13 @@ contract MoonpotManager is
             tokensSoldInRound / interval <= checkpoint / interval
         ) return;
 
-        lastInjectionCheckpoint[_currentRoundId] = tokensSoldInRound;
-
         uint256 usdcAmount = pendingLiquidityUsdc;
+
+        // Defer (keep pending + checkpoint) if the hook deems the price unsafe
+        // to LP at, so a manipulated price can't be sandwiched (F-2026-17061).
+        if (usdcAmount > 0 && !IMoonpotHook(hook).injectionAllowed()) return;
+
+        lastInjectionCheckpoint[_currentRoundId] = tokensSoldInRound;
         if (usdcAmount == 0) return;
 
         bool usdcIsToken0 = address(usdc) < address(tmp);

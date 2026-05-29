@@ -172,5 +172,14 @@ abstract contract InitializedFixture is BaseFixture {
 
         // Start round 1
         mp.start();
+
+        // The hook's TWAP/floor injection guard (F-2026-17061) is exercised in
+        // MoonpotHook.oracle.t.sol. Manager-side fixtures assume the price is
+        // safe to inject at, so stub the guard to permit injection.
+        vm.mockCall(
+            address(hook),
+            abi.encodeWithSelector(MoonpotHook.injectionAllowed.selector),
+            abi.encode(true)
+        );
     }
 }

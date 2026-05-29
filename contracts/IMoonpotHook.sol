@@ -17,6 +17,8 @@ interface IMoonpotHook {
 
     function setCurrentFloorTick(int24 tick) external;
 
+    function injectionAllowed() external view returns (bool);
+
     function positionId() external view returns (uint256);
 
     function currentFloorTick() external view returns (int24);

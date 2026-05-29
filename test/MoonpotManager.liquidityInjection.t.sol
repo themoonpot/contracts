@@ -148,4 +148,32 @@ contract MoonpotManagerLiquidityInjectionTest is InitializedFixture {
         assertEq(mp.pendingLiquidityUsdc(), 0);
     }
 
+    /* --------------------- F-2026-17061: injection price guard ----------------------- */
+
+    function testInjectionDeferredWhenHookDisallows() public {
+        // Hook deems the price unsafe to LP at -> defer (keep pending, don't advance).
+        vm.mockCall(
+            address(hook),
+            abi.encodeWithSelector(MoonpotHook.injectionAllowed.selector),
+            abi.encode(false)
+        );
+
+        _buy(10_000);
+        _buy(10_000);
+        _buy(5_001); // crosses 25k, but injection is deferred
+
+        assertEq(mp.lastInjectionCheckpoint(1), 0, "checkpoint must not advance on defer");
+        assertEq(mp.pendingLiquidityUsdc(), 25_001 * 0.05e6, "pending retained on defer");
+
+        // Price becomes safe -> the next buy injects the accumulated USDC.
+        vm.mockCall(
+            address(hook),
+            abi.encodeWithSelector(MoonpotHook.injectionAllowed.selector),
+            abi.encode(true)
+        );
+        _buy(1);
+
+        assertEq(mp.lastInjectionCheckpoint(1), 25_002, "checkpoint advances once injected");
+        assertEq(mp.pendingLiquidityUsdc(), 0, "pending drained after injection");
+    }
 }

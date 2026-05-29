@@ -27,12 +27,14 @@ import {LiquidityAmounts} from "@uniswap/v4-periphery/src/libraries/LiquidityAmo
 import "./IMoonpotManager.sol";
 import "./IMoonpotHook.sol";
 import "./MoonpotToken.sol";
+import {Oracle} from "./lib/Oracle.sol";
 
 contract MoonpotHook is BaseHook, Ownable, ReentrancyGuard, IUnlockCallback {
     using CurrencyLibrary for Currency;
     using PoolIdLibrary for PoolKey;
     using StateLibrary for IPoolManager;
     using SafeERC20 for IERC20;
+    using Oracle for Oracle.Observation[65535];
 
     uint8 private constant ACTION_INJECT_LIQUIDITY = 0;
 
@@ -60,8 +62,19 @@ contract MoonpotHook is BaseHook, Ownable, ReentrancyGuard, IUnlockCallback {
 
     uint128 public protocolLiquidity;
 
+    // TWAP oracle (sandwich guard for liquidity injection, F-2026-17061)
+    Oracle.Observation[65535] public observations;
+    uint16 public observationIndex;
+    uint16 public observationCardinality;
+    uint16 public observationCardinalityNext;
+
+    uint32 public twapWindow = 1800;
+    uint24 public maxTwapDeviationTicks = 1000;
+    int24 public maxFloorDeviationTicks = 2400;
+
     error InvalidAddress();
     error InvalidDefenseParams();
+    error InvalidInjectionGuardParams();
     error InvalidTokens();
     error ManagerNotSet();
     error ManagerAlreadySet();
@@ -80,6 +93,12 @@ contract MoonpotHook is BaseHook, Ownable, ReentrancyGuard, IUnlockCallback {
     event ManagerSet(address manager);
     event FeesHarvested(uint256 usdcAmount, uint256 tmpAmount);
     event TMPIntercepted(uint256 tmpBurned, uint256 maxAllowed);
+    event InjectionGuardParamsUpdated(
+        uint32 twapWindow,
+        uint24 maxTwapDeviationTicks,
+        int24 maxFloorDeviationTicks
+    );
+    event ObservationCardinalityIncreased(uint16 cardinalityNext);
 
     modifier onlyManager() {
         if (manager == address(0)) revert ManagerNotSet();
@@ -163,6 +182,9 @@ contract MoonpotHook is BaseHook, Ownable, ReentrancyGuard, IUnlockCallback {
         poolKey = key;
         _initialized = true;
 
+        (observationCardinality, observationCardinalityNext) = observations
+            .initialize(uint32(block.timestamp));
+
         return BaseHook.beforeInitialize.selector;
     }
 
@@ -174,6 +196,19 @@ contract MoonpotHook is BaseHook, Ownable, ReentrancyGuard, IUnlockCallback {
     ) internal override returns (bytes4, BeforeSwapDelta, uint24) {
         if (PoolId.unwrap(key.toId()) != PoolId.unwrap(poolKey.toId()))
             return (BaseHook.beforeSwap.selector, toBeforeSwapDelta(0, 0), 0);
+
+        // Record the pre-swap price into the TWAP oracle for every swap.
+        (uint160 sqrtPriceX96, int24 currentTick, , ) = poolManager.getSlot0(
+            key.toId()
+        );
+        (observationIndex, observationCardinality) = observations.write(
+            observationIndex,
+            uint32(block.timestamp),
+            currentTick,
+            1,
+            observationCardinality,
+            observationCardinalityNext
+        );
 
         bool usdcIsCurrency0 = Currency.unwrap(key.currency0) == address(usdc);
         bool isSellingTMP = usdcIsCurrency0
@@ -187,10 +222,6 @@ contract MoonpotHook is BaseHook, Ownable, ReentrancyGuard, IUnlockCallback {
                 baseDefenseTax | LPFeeLibrary.DYNAMIC_FEE_FLAG
             );
         if (params.amountSpecified > 0) revert ExactOutputTMPSellBlocked();
-
-        (uint160 sqrtPriceX96, int24 currentTick, , ) = poolManager.getSlot0(
-            key.toId()
-        );
 
         uint24 tax = _defenseTax(usdcIsCurrency0, currentTick);
 
@@ -514,6 +545,93 @@ contract MoonpotHook is BaseHook, Ownable, ReentrancyGuard, IUnlockCallback {
         taxRampTicks = _taxRampTicks;
 
         emit DefenseParamsUpdated(_base, _max, _taxRampTicks);
+    }
+
+    /// @notice Whether liquidity injection is allowed at the current price.
+    /// @dev TWAP deviation guard once the oracle is warm; floor-band fallback until then.
+    function injectionAllowed() external view returns (bool) {
+        (, int24 currentTick, , ) = poolManager.getSlot0(poolKey.toId());
+        return _injectionAllowedAt(currentTick);
+    }
+
+    function _injectionAllowedAt(
+        int24 currentTick
+    ) internal view returns (bool) {
+        if (_twapReady()) {
+            int24 twap = _consultTwapTick(currentTick);
+            int24 diff = currentTick > twap
+                ? currentTick - twap
+                : twap - currentTick;
+            return uint24(diff) <= maxTwapDeviationTicks;
+        }
+
+        // Warm-up: require price within a band above the floor (ordering-aware).
+        bool usdcIsCurrency0 = Currency.unwrap(poolKey.currency0) ==
+            address(usdc);
+        int24 above = usdcIsCurrency0
+            ? currentFloorTick - currentTick
+            : currentTick - currentFloorTick;
+        return above >= 0 && above <= maxFloorDeviationTicks;
+    }
+
+    function _twapReady() internal view returns (bool) {
+        uint16 card = observationCardinality;
+        if (card < 2) return false;
+        Oracle.Observation memory oldest = observations[
+            (observationIndex + 1) % card
+        ];
+        if (!oldest.initialized) oldest = observations[0];
+        if (!oldest.initialized) return false;
+        return uint32(block.timestamp) - oldest.blockTimestamp >= twapWindow;
+    }
+
+    function _consultTwapTick(
+        int24 currentTick
+    ) internal view returns (int24) {
+        uint32[] memory secondsAgos = new uint32[](2);
+        secondsAgos[0] = twapWindow;
+        secondsAgos[1] = 0;
+        (int56[] memory cums, ) = observations.observe(
+            uint32(block.timestamp),
+            secondsAgos,
+            currentTick,
+            observationIndex,
+            1,
+            observationCardinality
+        );
+        int56 delta = cums[1] - cums[0];
+        int56 window = int56(uint56(twapWindow));
+        int24 twap = int24(delta / window);
+        if (delta < 0 && delta % window != 0) twap--;
+        return twap;
+    }
+
+    function growOracle(uint16 next) external onlyOwner {
+        observationCardinalityNext = observations.grow(
+            observationCardinalityNext,
+            next
+        );
+        emit ObservationCardinalityIncreased(observationCardinalityNext);
+    }
+
+    function setInjectionGuardParams(
+        uint32 _twapWindow,
+        uint24 _maxTwapDeviationTicks,
+        int24 _maxFloorDeviationTicks
+    ) external onlyOwner {
+        if (_twapWindow < 60) revert InvalidInjectionGuardParams();
+        if (_maxTwapDeviationTicks == 0) revert InvalidInjectionGuardParams();
+        if (_maxFloorDeviationTicks <= 0) revert InvalidInjectionGuardParams();
+
+        twapWindow = _twapWindow;
+        maxTwapDeviationTicks = _maxTwapDeviationTicks;
+        maxFloorDeviationTicks = _maxFloorDeviationTicks;
+
+        emit InjectionGuardParamsUpdated(
+            _twapWindow,
+            _maxTwapDeviationTicks,
+            _maxFloorDeviationTicks
+        );
     }
 
     function positionId() external view returns (uint256) {
