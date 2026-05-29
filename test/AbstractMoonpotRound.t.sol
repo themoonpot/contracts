@@ -123,6 +123,15 @@ contract AbstractMoonpotRoundTest is Test {
         assertEq(round.seed(), 0xDEADBEEF);
     }
 
+    function testSetSeedCannotBeOverwritten() public {
+        vm.startPrank(manager);
+        round.setSeed(0xAAAA);
+        vm.expectRevert(AbstractMoonpotRound.SeedAlreadySet.selector);
+        round.setSeed(0xBBBB);
+        vm.stopPrank();
+        assertEq(round.seed(), 0xAAAA);
+    }
+
     function testSetSeedRequestIdOnlyManager() public {
         vm.expectRevert(AbstractMoonpotRound.Unauthorized.selector);
         vm.prank(stranger);

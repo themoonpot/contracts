@@ -121,6 +121,28 @@ contract MoonpotManagerVRFTest is InitializedFixture {
         assertEq(mp.vrfToId(reqId), 0);
     }
 
+    function testDuplicateRoundVRFDoesNotOverwriteSeed() public {
+        // End round 1 so reveals can be requested.
+        vm.prank(address(mp));
+        round1.end();
+
+        // Two in-flight round-reveal requests (a retry issued while #1 is pending).
+        mp.retryRoundReveal(1);
+        uint256 req1 = vrf.latestRequestId();
+        mp.retryRoundReveal(1);
+        uint256 req2 = vrf.latestRequestId();
+        assertTrue(req2 != req1);
+
+        // First response sets the seed.
+        vrf.fulfill(req1);
+        uint256 seedAfterFirst = round1.getSeed();
+        assertGt(seedAfterFirst, 0, "first VRF should set the seed");
+
+        // Duplicate response must NOT change the already-revealed seed.
+        vrf.fulfill(req2);
+        assertEq(round1.getSeed(), seedAfterFirst, "duplicate VRF overwrote the round seed");
+    }
+
     function testFulfillFromNonCoordinatorReverts() public {
         // Chainlink's `VRFConsumerBaseV2Plus.rawFulfillRandomWords` checks
         // msg.sender == s_vrfCoordinator and reverts otherwise.

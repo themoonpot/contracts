@@ -32,6 +32,7 @@ abstract contract AbstractMoonpotRound is IMoonpotRound {
     error InvalidRoundId();
     error InvalidShareAmounts();
     error InsufficientFunds();
+    error SeedAlreadySet();
     error Unauthorized();
 
     constructor(
@@ -147,6 +148,7 @@ abstract contract AbstractMoonpotRound is IMoonpotRound {
     }
 
     function setSeed(uint256 _seed) external override onlyManager {
+        if (seed != 0) revert SeedAlreadySet();
         seed = _seed;
     }
 

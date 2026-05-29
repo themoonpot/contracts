@@ -586,6 +586,10 @@ contract MoonpotManager is
         delete vrfToId[reqId];
 
         if (reqType == VRFRequestType.Round) {
+            // Ignore a duplicate reveal so a late/retried response can't
+            // overwrite an already-set seed; every NFT's value derives from it
+            // (F-2026-17062).
+            if (rounds[id].getSeed() != 0) return;
             rounds[id].setSeed(words[0]);
             emit RoundRevealed(id, words[0]);
         } else if (reqType == VRFRequestType.Purchase) {
