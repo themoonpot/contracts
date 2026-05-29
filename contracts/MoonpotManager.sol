@@ -754,8 +754,11 @@ contract MoonpotManager is
         tmpAmount = (tmpAmount * 101) / 100 + 1;
         tmp.mint(address(hook), tmpAmount);
 
-        IMoonpotHook(hook).injectLiquidity(usdcAmount);
-        pendingLiquidityUsdc = 0;
+        // Only clear the USDC the hook actually injected; any unused remainder
+        // stays queued for the next checkpoint (F-2026-17073).
+        uint256 consumed = IMoonpotHook(hook).injectLiquidity(usdcAmount);
+        if (consumed > usdcAmount) consumed = usdcAmount;
+        pendingLiquidityUsdc -= consumed;
         emit PendingLiquidityUpdated(pendingLiquidityUsdc);
     }
 

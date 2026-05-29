@@ -28,11 +28,13 @@ contract MoonpotManagerLiquidityInjectionTest is InitializedFixture {
         _setMockSlot0(TickMath.getSqrtPriceAtTick(-260_000));
 
         // Mock hook.injectLiquidity so the manager's call doesn't enter the
-        // unlock-callback path against our stub PoolManager.
+        // unlock-callback path against our stub PoolManager. Return a value >=
+        // any queued amount so the manager (which clamps to usdcAmount) treats
+        // it as full consumption.
         vm.mockCall(
             address(hook),
             abi.encodeWithSelector(MoonpotHook.injectLiquidity.selector),
-            bytes("")
+            abi.encode(type(uint256).max)
         );
     }
 
@@ -149,6 +151,27 @@ contract MoonpotManagerLiquidityInjectionTest is InitializedFixture {
     }
 
     /* --------------------- F-2026-17061: injection price guard ----------------------- */
+
+    function testPendingRetainedWhenInjectionConsumesPartially() public {
+        // The hook reports consuming only part of the queued USDC (liquidity
+        // rounding / price-range edge). The manager must keep the remainder
+        // pending rather than zeroing it (F-2026-17073).
+        uint256 queued = 25_001 * 0.05e6; // pending at the 25k crossing
+        uint256 consumed = queued / 3;
+
+        vm.mockCall(
+            address(hook),
+            abi.encodeWithSelector(MoonpotHook.injectLiquidity.selector),
+            abi.encode(consumed)
+        );
+
+        _buy(10_000);
+        _buy(10_000);
+        _buy(5_001); // crosses 25k -> injection runs but only partially consumes
+
+        assertEq(mp.lastInjectionCheckpoint(1), 25_001, "checkpoint advanced");
+        assertEq(mp.pendingLiquidityUsdc(), queued - consumed, "remainder must stay pending");
+    }
 
     function testInjectionDeferredWhenHookDisallows() public {
         // Hook deems the price unsafe to LP at -> defer (keep pending, don't advance).

@@ -262,6 +262,8 @@ contract MoonpotHook is BaseHook, Ownable, ReentrancyGuard, IUnlockCallback {
         if (action == ACTION_INJECT_LIQUIDITY) {
             (, uint256 usdcAmount) = abi.decode(data, (uint8, uint256));
 
+            uint256 usdcBefore = usdc.balanceOf(address(this));
+
             bool usdcIsZero = Currency.unwrap(poolKey.currency0) ==
                 address(usdc);
 
@@ -302,6 +304,10 @@ contract MoonpotHook is BaseHook, Ownable, ReentrancyGuard, IUnlockCallback {
 
             uint256 leftover = tmp.balanceOf(address(this));
             if (leftover > 0) MoonpotToken(address(tmp)).burn(leftover);
+
+            // Report the USDC actually pulled into the LP so the manager keeps
+            // any unused remainder tracked as pending (F-2026-17073).
+            return abi.encode(usdcBefore - usdc.balanceOf(address(this)));
         }
 
         return bytes("");
@@ -309,9 +315,12 @@ contract MoonpotHook is BaseHook, Ownable, ReentrancyGuard, IUnlockCallback {
 
     function injectLiquidity(
         uint256 usdcAmount
-    ) external onlyManager nonReentrant {
-        if (usdcAmount == 0) return;
-        poolManager.unlock(abi.encode(ACTION_INJECT_LIQUIDITY, usdcAmount));
+    ) external onlyManager nonReentrant returns (uint256 consumed) {
+        if (usdcAmount == 0) return 0;
+        bytes memory result = poolManager.unlock(
+            abi.encode(ACTION_INJECT_LIQUIDITY, usdcAmount)
+        );
+        consumed = abi.decode(result, (uint256));
     }
 
     function quoteSell(

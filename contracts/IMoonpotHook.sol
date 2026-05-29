@@ -6,7 +6,7 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 interface IMoonpotHook {
     function harvestFees() external;
 
-    function injectLiquidity(uint256 usdcAmount) external;
+    function injectLiquidity(uint256 usdcAmount) external returns (uint256 consumed);
 
     function setPositionId(
         uint256 positionId,

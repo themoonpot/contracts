@@ -178,7 +178,7 @@ contract MoonpotManagerProcessBuyTest is InitializedFixture {
         // the first buy; stub the pool read + hook injection.
         bytes32 slot0 = bytes32(uint256(TickMath.getSqrtPriceAtTick(-260_000)));
         vm.mockCall(address(poolManager), abi.encodeWithSignature("extsload(bytes32)"), abi.encode(slot0));
-        vm.mockCall(address(hook), abi.encodeWithSelector(MoonpotHook.injectLiquidity.selector), bytes(""));
+        vm.mockCall(address(hook), abi.encodeWithSelector(MoonpotHook.injectLiquidity.selector), abi.encode(type(uint256).max));
 
         // 12 tokens from sellout, nftsMinted still 0 -> stale snapshots below.
         vm.startPrank(address(mp));

@@ -32,7 +32,7 @@ contract MoonpotManagerIntegrationTest is InitializedFixture {
         vm.mockCall(
             address(hook),
             abi.encodeWithSelector(MoonpotHook.injectLiquidity.selector),
-            bytes("")
+            abi.encode(type(uint256).max)
         );
     }
 
