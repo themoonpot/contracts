@@ -123,5 +123,51 @@ contract TEAPermuterTest is Test {
     // heavy cycle-walking (memory-OOG). The bijection property of the Feistel
     // construction itself is proven by the smaller-block variants above
     // (permute9, permute10, permute14); they share the same `_encryptGeneric`
-    // core. The production rounds use `permute17`, not `permute20`.
+    // core.
+
+    /// --- permute17 (~131k block) — the PRODUCTION configuration (6 rounds) ---
+
+    function testPermute17OutputInRange() public pure {
+        uint256 n = 99_991; // production TOTAL_NFTS
+        assertLt(TEAPermuter.permute17(50_000, n, 12345, 6), n);
+    }
+
+    function testPermute17Deterministic() public pure {
+        uint256 n = 99_991;
+        uint256 a = TEAPermuter.permute17(42, n, 98765, 6);
+        uint256 b = TEAPermuter.permute17(42, n, 98765, 6);
+        assertEq(a, b);
+    }
+
+    function testPermute17DifferentSeedsLikelyDiffer() public pure {
+        uint256 n = 99_991;
+        uint256 out1 = TEAPermuter.permute17(42, n, 123, 6);
+        uint256 out2 = TEAPermuter.permute17(42, n, 456, 6);
+        assert(out1 != out2);
+    }
+
+    // Full-domain bijection at the PRODUCTION parameters (n = TOTAL_NFTS, 6
+    // rounds): every tokenId maps to a unique reward-table index, so no two
+    // NFTs can collide onto the same prize (F-2026-17066). permute17 allocates
+    // keccak scratch on each call (_keySchedule); over a ~100k-call sweep that
+    // scratch's high-water mark grows quadratically and exhausts gas, so we
+    // reset the free-memory pointer back above `seen` each iteration to reclaim
+    // it (the scratch is never read again; `seen` lives below the reset point).
+    function testPermute17IsPermutation_ProductionDomain() public pure {
+        uint256 n = 99_991;
+        bool[] memory seen = new bool[](n);
+        uint256 freeAfterSeen;
+        assembly ("memory-safe") {
+            freeAfterSeen := mload(0x40)
+        }
+        for (uint256 i = 0; i < n; i++) {
+            uint256 out = TEAPermuter.permute17(i, n, 777, 6);
+            assertLt(out, n);
+            assertTrue(!seen[out], "duplicate output detected");
+            seen[out] = true;
+            assembly ("memory-safe") {
+                mstore(0x40, freeAfterSeen)
+            }
+        }
+    }
 }

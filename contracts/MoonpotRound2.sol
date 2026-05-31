@@ -60,6 +60,6 @@ contract MoonpotRound2 is AbstractMoonpotRound {
         uint256 index,
         uint256 seed
     ) external view override returns (uint256) {
-        return TEAPermuter.permute17(index % TOTAL_NFTS, TOTAL_NFTS, seed, 4);
+        return TEAPermuter.permute17(index % TOTAL_NFTS, TOTAL_NFTS, seed, 6);
     }
 }
