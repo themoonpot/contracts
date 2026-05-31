@@ -28,6 +28,9 @@ abstract contract AbstractMoonpotRound is IMoonpotRound {
     uint256 public seedRequestId;
     uint256 public seed;
 
+    error AlreadyStarted();
+    error AlreadyEnded();
+    error NotStarted();
     error InvalidAddress();
     error InvalidRoundId();
     error InvalidShareAmounts();
@@ -124,10 +127,13 @@ abstract contract AbstractMoonpotRound is IMoonpotRound {
     }
 
     function start() external override onlyManager {
+        if (startTime != type(uint256).max) revert AlreadyStarted();
         startTime = block.timestamp;
     }
 
     function end() external override onlyManager {
+        if (startTime == type(uint256).max) revert NotStarted();
+        if (endTime != 0) revert AlreadyEnded();
         endTime = block.timestamp;
     }
 

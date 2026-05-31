@@ -226,6 +226,7 @@ contract MoonpotManagerAccessTest is Test {
 
         // Manipulate round state as the manager (msg.sender = manager contract)
         vm.startPrank(address(manager));
+        round1.start();
         round1.end();
         round1.setSeed(0xABC);
         vm.stopPrank();

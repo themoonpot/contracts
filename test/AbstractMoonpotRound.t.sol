@@ -41,10 +41,36 @@ contract AbstractMoonpotRoundTest is Test {
     }
 
     function testEndSetsTimestamp() public {
+        vm.warp(1_000_000);
+        vm.startPrank(manager);
+        round.start();
         vm.warp(2_000_000);
-        vm.prank(manager);
         round.end();
+        vm.stopPrank();
         assertEq(round.endTime(), 2_000_000);
+    }
+
+    function testStartRevertsIfAlreadyStarted() public {
+        vm.startPrank(manager);
+        round.start();
+        vm.expectRevert(AbstractMoonpotRound.AlreadyStarted.selector);
+        round.start();
+        vm.stopPrank();
+    }
+
+    function testEndRevertsIfNotStarted() public {
+        vm.prank(manager);
+        vm.expectRevert(AbstractMoonpotRound.NotStarted.selector);
+        round.end();
+    }
+
+    function testEndRevertsIfAlreadyEnded() public {
+        vm.startPrank(manager);
+        round.start();
+        round.end();
+        vm.expectRevert(AbstractMoonpotRound.AlreadyEnded.selector);
+        round.end();
+        vm.stopPrank();
     }
 
     function testStartOnlyManager() public {
