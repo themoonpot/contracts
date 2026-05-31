@@ -140,6 +140,7 @@ contract MoonpotManager is
     error IncorrectAmount();
     error InvalidAddress();
     error InvalidNFTCount();
+    error InvalidRoundId();
     error InvalidScannedCount();
     error InvalidTickBound();
     error InvalidVRFParams();
@@ -516,7 +517,7 @@ contract MoonpotManager is
         if (nft.ownerOf(tokenId) != msg.sender) revert NotOwner();
 
         uint256 roundId = nft.getRound(tokenId);
-        if (roundId == 0) revert InvalidAddress();
+        if (roundId == 0) revert InvalidRoundId();
 
         IMoonpotRound round = rounds[roundId];
 
@@ -546,7 +547,7 @@ contract MoonpotManager is
             if (nft.ownerOf(tokenId) != msg.sender) revert NotOwner();
 
             uint256 roundId = nft.getRound(tokenId);
-            if (roundId == 0) revert InvalidAddress();
+            if (roundId == 0) revert InvalidRoundId();
 
             if (roundId != lastRoundId) {
                 if (roundTotal > 0) {

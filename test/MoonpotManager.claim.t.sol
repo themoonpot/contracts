@@ -40,6 +40,24 @@ contract MoonpotManagerClaimTest is InitializedFixture {
         vm.stopPrank();
     }
 
+    function testClaimRevertsInvalidRoundIdForZeroRound() public {
+        // A token stamped with roundId 0 can't be claimed; the revert should
+        // name the round, not an address (F-2026-17068).
+        vm.prank(address(mp));
+        nft.mintTo(buyer, 1, 0);
+        assertEq(nft.getRound(0), 0);
+
+        vm.expectRevert(MoonpotManager.InvalidRoundId.selector);
+        vm.prank(buyer);
+        mp.claimNFT(0);
+
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = 0;
+        vm.expectRevert(MoonpotManager.InvalidRoundId.selector);
+        vm.prank(buyer);
+        mp.claimNFTs(ids);
+    }
+
     /* --------------------------------- happy paths ----------------------------------- */
 
     function testClaimNFTTransfersRewardAndMarksClaimed() public {
