@@ -646,6 +646,12 @@ contract MoonpotManager is
         if (round.getEndTime() == 0) revert RoundNotEnded();
         if (round.getSeed() != 0) revert AlreadyFilled();
 
+        // Drop the previous request's routing so a never-fulfilled reqId
+        // doesn't linger in storage (F-2026-17089).
+        uint256 oldReqId = round.getSeedRequestId();
+        delete vrfRequestType[oldReqId];
+        delete vrfToId[oldReqId];
+
         uint256 reqId = s_vrfCoordinator.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
                 keyHash: vrfKeyHash,

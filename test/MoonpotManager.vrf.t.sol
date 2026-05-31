@@ -126,21 +126,43 @@ contract MoonpotManagerVRFTest is InitializedFixture {
         vm.prank(address(mp));
         round1.end();
 
-        // Two in-flight round-reveal requests (a retry issued while #1 is pending).
+        // A retry supersedes the prior request (its mapping is cleared, F-2026-17089).
         mp.retryRoundReveal(1);
         uint256 req1 = vrf.latestRequestId();
         mp.retryRoundReveal(1);
         uint256 req2 = vrf.latestRequestId();
         assertTrue(req2 != req1);
 
-        // First response sets the seed.
-        vrf.fulfill(req1);
-        uint256 seedAfterFirst = round1.getSeed();
-        assertGt(seedAfterFirst, 0, "first VRF should set the seed");
-
-        // Duplicate response must NOT change the already-revealed seed.
+        // The latest (live) request sets the seed.
         vrf.fulfill(req2);
-        assertEq(round1.getSeed(), seedAfterFirst, "duplicate VRF overwrote the round seed");
+        uint256 seed = round1.getSeed();
+        assertGt(seed, 0, "latest VRF should set the seed");
+
+        // The superseded request must NOT overwrite the already-revealed seed.
+        vrf.fulfill(req1);
+        assertEq(round1.getSeed(), seed, "stale VRF overwrote the round seed");
+    }
+
+    function testRetryRoundRevealClearsStaleMapping() public {
+        // A second retry must clear the previous reqId's routing entries
+        // instead of leaving them dangling (F-2026-17089).
+        vm.prank(address(mp));
+        round1.end();
+
+        mp.retryRoundReveal(1);
+        uint256 req1 = vrf.latestRequestId();
+        assertEq(uint256(mp.vrfRequestType(req1)), 2); // Round
+
+        mp.retryRoundReveal(1);
+        uint256 req2 = vrf.latestRequestId();
+        assertTrue(req2 != req1);
+
+        // old entries cleared
+        assertEq(uint256(mp.vrfRequestType(req1)), 0); // None
+        assertEq(mp.vrfToId(req1), 0);
+        // new entries set
+        assertEq(uint256(mp.vrfRequestType(req2)), 2);
+        assertEq(mp.vrfToId(req2), 1);
     }
 
     function testFulfillFromNonCoordinatorReverts() public {
