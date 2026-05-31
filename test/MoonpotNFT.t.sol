@@ -89,6 +89,12 @@ contract MoonpotNFTTest is Test {
         nft.setBaseURI("https://new.example/");
     }
 
+    function testFreezeBaseURIEmitsEvent() public {
+        vm.expectEmit(false, false, false, true, address(nft));
+        emit MoonpotNFT.BaseURILocked();
+        nft.freezeBaseURI();
+    }
+
     function testMetadataVersionDoesNotChangeOnFreeze() public {
         uint256 beforeVersion = nft.metadataVersion();
         nft.freezeBaseURI();

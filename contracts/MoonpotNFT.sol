@@ -15,6 +15,7 @@ contract MoonpotNFT is ERC721AQueryable, Ownable2Step {
     event MetadataUpdate(uint256 _tokenId);
     event BatchMetadataUpdate(uint256 _fromTokenId, uint256 _toTokenId);
     event ManagerSet(address indexed _manager);
+    event BaseURILocked();
 
     address public manager;
 
@@ -71,6 +72,7 @@ contract MoonpotNFT is ERC721AQueryable, Ownable2Step {
 
     function freezeBaseURI() external onlyOwner {
         baseURIFrozen = true;
+        emit BaseURILocked();
     }
 
     function _baseURI() internal view override returns (string memory) {
