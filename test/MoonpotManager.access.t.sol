@@ -132,6 +132,12 @@ contract MoonpotManagerAccessTest is Test {
         manager.setRound(1, address(round1Other));
     }
 
+    function testSetRoundRevertsOnRoundIdMismatch() public {
+        // round1 has roundId 1; registering it at slot 2 must revert (F-2026-17085).
+        vm.expectRevert(MoonpotManager.RoundIdMismatch.selector);
+        manager.setRound(2, address(round1));
+    }
+
     function testSetRoundRevertsOnZeroAddr() public {
         vm.expectRevert(MoonpotManager.InvalidAddress.selector);
         manager.setRound(1, address(0));

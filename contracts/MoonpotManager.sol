@@ -151,6 +151,7 @@ contract MoonpotManager is
     error RoundActive();
     error RoundOutOfBounds();
     error RoundExists();
+    error RoundIdMismatch();
     error RoundMissing();
     error RoundNotActive();
     error RoundNotEnded();
@@ -372,6 +373,7 @@ contract MoonpotManager is
         if (id == 0 || id > MAX_ROUNDS) revert RoundOutOfBounds();
         if (address(rounds[id]) != address(0)) revert RoundExists();
         if (addr == address(0)) revert InvalidAddress();
+        if (IMoonpotRound(addr).getRoundId() != id) revert RoundIdMismatch();
 
         rounds[id] = IMoonpotRound(addr);
         emit RoundSet(id, addr);
