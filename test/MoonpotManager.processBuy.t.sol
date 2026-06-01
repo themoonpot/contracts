@@ -32,7 +32,7 @@ contract MoonpotManagerProcessBuyTest is InitializedFixture {
         uint256 tmpAmount,
         uint256 seed,
         uint256 drawsLeft,
-        uint32 nftsLeft
+        uint256 nftsLeft
     ) internal pure returns (uint256 nftsFound) {
         for (uint256 i = 0; i < tmpAmount; i++) {
             if (nftsLeft == 0) break;
@@ -69,7 +69,7 @@ contract MoonpotManagerProcessBuyTest is InitializedFixture {
         assertEq(nft.totalMinted(), nftBefore + expected);
 
         // Round bookkeeping
-        assertEq(round1.nftsMinted(), uint32(expected));
+        assertEq(round1.nftsMinted(), expected);
         assertEq(round1.scannedCount(), tokens);
         assertEq(mp.nftsMinted(), expected);
 
@@ -139,7 +139,7 @@ contract MoonpotManagerProcessBuyTest is InitializedFixture {
 
     function testProcessBuyWhenRoundHasNoNFTsLeftMintsZero() public {
         // Drain NFTs from the round (impersonate the manager).
-        uint32 totalNfts = round1.TOTAL_NFTS();
+        uint256 totalNfts = round1.TOTAL_NFTS();
         vm.prank(address(mp));
         round1.notifyNFTMinted(totalNfts);
 
@@ -163,7 +163,7 @@ contract MoonpotManagerProcessBuyTest is InitializedFixture {
     /// overshoot the cap; live remaining-state bounds keep the total capped.
     function testConcurrentBuysCannotOvermintBeyondNFTCap() public {
         uint256 TOTAL_TOKENS = round1.TOTAL_TOKENS();
-        uint32 TOTAL_NFTS = round1.TOTAL_NFTS();
+        uint256 TOTAL_NFTS = round1.TOTAL_NFTS();
 
         address alice = address(0xA11CE);
         address bob = address(0xB0B);

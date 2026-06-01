@@ -481,7 +481,7 @@ contract MoonpotManager is
         // Live counters, not a buy-time snapshot: caps total mints at
         // TOTAL_NFTS regardless of buy/process order (F-2026-17058).
         uint256 drawsLeft = round.getTokenCount() - round.getScannedCount();
-        uint32 nftsLeft = round.getNFTCount() - round.getNFTsMinted();
+        uint256 nftsLeft = round.getNFTCount() - round.getNFTsMinted();
         uint256 nftsFound = 0;
 
         if (nftsLeft > 0 && drawsLeft > 0) {
@@ -500,7 +500,7 @@ contract MoonpotManager is
 
             if (nftsFound > 0) {
                 nft.mintTo(p.buyer, nftsFound, p.roundId);
-                round.notifyNFTMinted(uint32(nftsFound));
+                round.notifyNFTMinted(nftsFound);
                 nftsMinted += nftsFound;
             }
         }

@@ -41,9 +41,9 @@ interface IMoonpotRound {
 
     function getTokensSold() external view returns (uint256);
 
-    function getNFTCount() external view returns (uint32);
+    function getNFTCount() external view returns (uint256);
 
-    function getNFTsMinted() external view returns (uint32);
+    function getNFTsMinted() external view returns (uint256);
 
     function getStartTime() external view returns (uint256);
 
@@ -61,7 +61,7 @@ interface IMoonpotRound {
 
     function notifyScanned(uint256 scannedCount) external;
 
-    function notifyNFTMinted(uint32 nftCount) external;
+    function notifyNFTMinted(uint256 nftCount) external;
 
     function start() external;
 

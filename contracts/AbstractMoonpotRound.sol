@@ -13,7 +13,7 @@ abstract contract AbstractMoonpotRound is IMoonpotRound {
 
     uint256 public immutable PRICE;
     uint256 public immutable TOTAL_TOKENS;
-    uint32 public immutable TOTAL_NFTS;
+    uint256 public immutable TOTAL_NFTS;
 
     uint256 public immutable SHARE_COMMUNITY;
     uint256 public immutable SHARE_COMPANY;
@@ -22,7 +22,7 @@ abstract contract AbstractMoonpotRound is IMoonpotRound {
     uint256 public startTime = type(uint256).max;
     uint256 public endTime;
     uint256 public tokensSold;
-    uint32 public nftsMinted;
+    uint256 public nftsMinted;
     uint256 public rewardPool;
     uint256 public scannedCount;
     uint256 public seedRequestId;
@@ -44,7 +44,7 @@ abstract contract AbstractMoonpotRound is IMoonpotRound {
         address _usdc,
         uint256 _price,
         uint256 _tokens,
-        uint32 _nfts,
+        uint256 _nfts,
         uint256 _sComm,
         uint256 _sComp,
         uint256 _sLiq
@@ -82,7 +82,7 @@ abstract contract AbstractMoonpotRound is IMoonpotRound {
         return TOTAL_TOKENS;
     }
 
-    function getNFTCount() external view override returns (uint32) {
+    function getNFTCount() external view override returns (uint256) {
         return TOTAL_NFTS;
     }
 
@@ -102,7 +102,7 @@ abstract contract AbstractMoonpotRound is IMoonpotRound {
         return tokensSold;
     }
 
-    function getNFTsMinted() external view override returns (uint32) {
+    function getNFTsMinted() external view override returns (uint256) {
         return nftsMinted;
     }
 
@@ -145,7 +145,7 @@ abstract contract AbstractMoonpotRound is IMoonpotRound {
         scannedCount += amount;
     }
 
-    function notifyNFTMinted(uint32 count) external override onlyManager {
+    function notifyNFTMinted(uint256 count) external override onlyManager {
         nftsMinted += count;
     }
 
