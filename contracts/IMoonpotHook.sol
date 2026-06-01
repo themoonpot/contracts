@@ -8,7 +8,7 @@ interface IMoonpotHook {
 
     function injectLiquidity(uint256 usdcAmount) external returns (uint256 consumed);
 
-    function setPositionId(
+    function setPosition(
         uint256 positionId,
         int24 tickLower,
         int24 tickUpper,

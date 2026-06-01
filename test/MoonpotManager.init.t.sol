@@ -18,7 +18,7 @@ contract MoonpotManagerInitTest is BaseFixture {
         assertEq(tickSpacing, 60);
         assertTrue(fee != 0);
 
-        // Hook armed via setPositionId
+        // Hook armed via setPosition
         assertEq(hook.positionId(), 1); // mocked nextTokenId returns 2 → id = 1
         assertGt(hook.protocolLiquidity(), 0);
         assertGt(hook.positionTickUpper(), hook.positionTickLower());

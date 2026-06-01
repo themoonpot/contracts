@@ -322,7 +322,7 @@ contract MoonpotManager is
 
         uint256 newPositionId = positionManager.nextTokenId() - 1;
 
-        IMoonpotHook(hook).setPositionId(
+        IMoonpotHook(hook).setPosition(
             newPositionId,
             usdcIsToken0 ? tickUpper : tickLower,
             usdcIsToken0 ? tickLower : tickUpper,

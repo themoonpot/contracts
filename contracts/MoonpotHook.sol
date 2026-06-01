@@ -92,7 +92,7 @@ contract MoonpotHook is BaseHook, Ownable2Step, ReentrancyGuard, IUnlockCallback
         uint24 maxTax,
         int24 taxRampTicks
     );
-    event PositionIdSet(uint256 id);
+    event PositionConfigured(uint256 id, int24 tickLower, int24 tickUpper, uint128 liquidity);
     event ManagerSet(address manager);
     event FeesHarvested(uint256 usdcAmount, uint256 tmpAmount);
     event TMPIntercepted(uint256 tmpBurned, uint256 maxAllowed);
@@ -524,7 +524,7 @@ contract MoonpotHook is BaseHook, Ownable2Step, ReentrancyGuard, IUnlockCallback
         }
     }
 
-    function setPositionId(
+    function setPosition(
         uint256 id,
         int24 tickLower,
         int24 tickUpper,
@@ -537,7 +537,7 @@ contract MoonpotHook is BaseHook, Ownable2Step, ReentrancyGuard, IUnlockCallback
         positionTickUpper = tickUpper;
         protocolLiquidity = liquidity;
 
-        emit PositionIdSet(id);
+        emit PositionConfigured(id, tickLower, tickUpper, liquidity);
     }
 
     function setCurrentFloorTick(int24 tick) external onlyManager {

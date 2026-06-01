@@ -178,13 +178,14 @@ contract MoonpotHookSettersTest is Test {
         hook.setDefenseParams(1_000, 100_000, 1_000);
     }
 
-    /* --------------------------------- setPositionId --------------------------------- */
+    /* --------------------------------- setPosition --------------------------------- */
 
-    function testSetPositionIdHappy() public {
+    function testSetPositionHappy() public {
         _setManagerToThis();
+        // Event logs all four position params (F-2026-17189), not just the id.
         vm.expectEmit(false, false, false, true, address(hook));
-        emit MoonpotHook.PositionIdSet(42);
-        hook.setPositionId(42, -300, 300, 1_000_000);
+        emit MoonpotHook.PositionConfigured(42, -300, 300, 1_000_000);
+        hook.setPosition(42, -300, 300, 1_000_000);
 
         assertEq(hook.positionId(), 42);
         assertEq(hook.positionTickLower(), -300);
@@ -192,25 +193,25 @@ contract MoonpotHookSettersTest is Test {
         assertEq(hook.protocolLiquidity(), 1_000_000);
     }
 
-    function testSetPositionIdNoOpOnZero() public {
+    function testSetPositionNoOpOnZero() public {
         _setManagerToThis();
-        hook.setPositionId(0, -300, 300, 1_000_000);
+        hook.setPosition(0, -300, 300, 1_000_000);
         assertEq(hook.positionId(), 0);
         assertEq(hook.positionTickLower(), 0);
         assertEq(hook.positionTickUpper(), 0);
         assertEq(hook.protocolLiquidity(), 0);
     }
 
-    function testSetPositionIdOnlyManager() public {
+    function testSetPositionOnlyManager() public {
         _setManagerToThis();
         vm.expectRevert(MoonpotHook.OnlyManager.selector);
         vm.prank(stranger);
-        hook.setPositionId(42, -300, 300, 1_000_000);
+        hook.setPosition(42, -300, 300, 1_000_000);
     }
 
-    function testSetPositionIdRevertsBeforeManagerSet() public {
+    function testSetPositionRevertsBeforeManagerSet() public {
         vm.expectRevert(MoonpotHook.ManagerNotSet.selector);
-        hook.setPositionId(42, -300, 300, 1_000_000);
+        hook.setPosition(42, -300, 300, 1_000_000);
     }
 
     /* --------------------------------- setCurrentFloorTick --------------------------- */

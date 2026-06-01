@@ -190,7 +190,7 @@ contract MoonpotHookQuotesTest is Test {
         // When usdc is currency0, sqrtPriceX96 >= sqrt(floorTickUpper) means price ≤ floor (USDC≤TMP).
         // i.e. price is already at/above the floor "from below" → no more room → maxSell = 0.
         hook.setCurrentFloorTick(1_500);
-        hook.setPositionId(1, 1_440, 1_560, 1_000_000);
+        hook.setPosition(1, 1_440, 1_560, 1_000_000);
 
         uint160 sqrtAtUpper = TickMath.getSqrtPriceAtTick(1_560);
         assertEq(hook.exposed_computeMaxTmpSell(true, sqrtAtUpper), 0);
@@ -200,7 +200,7 @@ contract MoonpotHookQuotesTest is Test {
     function testMaxSellWhenUsdcIsCurrency0_priceBelowFloorUpperIsPositive() public {
         hook.setManager(address(this));
         hook.setCurrentFloorTick(1_500);
-        hook.setPositionId(1, 1_440, 1_560, 1_000_000);
+        hook.setPosition(1, 1_440, 1_560, 1_000_000);
 
         uint160 sqrtBelowFloor = TickMath.getSqrtPriceAtTick(1_000);
         uint256 maxSell = hook.exposed_computeMaxTmpSell(true, sqrtBelowFloor);
@@ -210,7 +210,7 @@ contract MoonpotHookQuotesTest is Test {
     function testMaxSellWhenTmpIsCurrency0_priceAtOrBelowFloorLowerReturnsZero() public {
         hook.setManager(address(this));
         hook.setCurrentFloorTick(-1_500);
-        hook.setPositionId(1, -1_560, -1_440, 1_000_000);
+        hook.setPosition(1, -1_560, -1_440, 1_000_000);
 
         uint160 sqrtAtLower = TickMath.getSqrtPriceAtTick(-1_560);
         assertEq(hook.exposed_computeMaxTmpSell(false, sqrtAtLower), 0);
@@ -220,7 +220,7 @@ contract MoonpotHookQuotesTest is Test {
     function testMaxSellWhenTmpIsCurrency0_priceAboveFloorLowerIsPositive() public {
         hook.setManager(address(this));
         hook.setCurrentFloorTick(-1_500);
-        hook.setPositionId(1, -1_560, -1_440, 1_000_000);
+        hook.setPosition(1, -1_560, -1_440, 1_000_000);
 
         uint160 sqrtAbove = TickMath.getSqrtPriceAtTick(-1_000);
         uint256 maxSell = hook.exposed_computeMaxTmpSell(false, sqrtAbove);
@@ -230,13 +230,13 @@ contract MoonpotHookQuotesTest is Test {
     function testMaxSellScalesWithLiquidity() public {
         hook.setManager(address(this));
         hook.setCurrentFloorTick(1_500);
-        hook.setPositionId(1, 1_440, 1_560, 1_000_000);
+        hook.setPosition(1, 1_440, 1_560, 1_000_000);
         uint160 sqrtBelowFloor = TickMath.getSqrtPriceAtTick(1_000);
         uint256 small = hook.exposed_computeMaxTmpSell(true, sqrtBelowFloor);
 
-        // setPositionId is one-shot in spirit but the contract allows re-set
+        // setPosition is one-shot in spirit but the contract allows re-set
         // (id == 0 is a no-op; id != 0 overwrites). Re-set with 10× liquidity.
-        hook.setPositionId(1, 1_440, 1_560, 10_000_000);
+        hook.setPosition(1, 1_440, 1_560, 10_000_000);
         uint256 big = hook.exposed_computeMaxTmpSell(true, sqrtBelowFloor);
 
         // Linear-ish in liquidity (FullMath path)
