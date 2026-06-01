@@ -176,7 +176,6 @@ contract MoonpotManager is
             _tmp == address(0) ||
             _nft == address(0) ||
             _comp == address(0) ||
-            _vrf == address(0) ||
             _poolm == address(0) ||
             _posm == address(0) ||
             _permit2 == address(0) ||
