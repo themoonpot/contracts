@@ -78,6 +78,7 @@ contract MoonpotHook is BaseHook, Ownable2Step, ReentrancyGuard, IUnlockCallback
 
     error InvalidAddress();
     error InvalidDefenseParams();
+    error InvalidFloorTick();
     error InvalidInjectionGuardParams();
     error InvalidTokens();
     error ManagerNotSet();
@@ -541,9 +542,17 @@ contract MoonpotHook is BaseHook, Ownable2Step, ReentrancyGuard, IUnlockCallback
     }
 
     function setCurrentFloorTick(int24 tick) external onlyManager {
+        // Keep the floor band within TickMath range so the sell path
+        // (getSqrtPriceAtTick in _computeMaxTmpSell) can never revert (F-2026-17240).
+        int24 spacing = poolKey.tickSpacing;
+        if (
+            tick - spacing < TickMath.MIN_TICK ||
+            tick + spacing > TickMath.MAX_TICK
+        ) revert InvalidFloorTick();
+
         currentFloorTick = tick;
-        floorTickLower = tick - poolKey.tickSpacing;
-        floorTickUpper = tick + poolKey.tickSpacing;
+        floorTickLower = tick - spacing;
+        floorTickUpper = tick + spacing;
 
         emit CurrentFloorTickUpdated(tick);
     }

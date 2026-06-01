@@ -9,6 +9,7 @@ import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {LPFeeLibrary} from "@uniswap/v4-core/src/libraries/LPFeeLibrary.sol";
+import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import "../contracts/MoonpotHook.sol";
 import "../contracts/MoonpotToken.sol";
 import "../contracts/mocks/MockUSDC.sol";
@@ -244,5 +245,21 @@ contract MoonpotHookSettersTest is Test {
     function testSetCurrentFloorTickRevertsBeforeManagerSet() public {
         vm.expectRevert(MoonpotHook.ManagerNotSet.selector);
         hook.setCurrentFloorTick(100);
+    }
+
+    function testSetCurrentFloorTickRevertsOnOutOfRange() public {
+        _setManagerToThis();
+        // tick + tickSpacing exceeds TickMath.MAX_TICK → would brick the sell path (F-2026-17240).
+        vm.expectRevert(MoonpotHook.InvalidFloorTick.selector);
+        hook.setCurrentFloorTick(TickMath.MAX_TICK);
+    }
+
+    function testSetCurrentFloorTickAcceptsRangeBoundary() public {
+        _setManagerToThis();
+        // tick + tickSpacing == MAX_TICK exactly is allowed.
+        int24 maxOk = TickMath.MAX_TICK - TICK_SPACING;
+        hook.setCurrentFloorTick(maxOk);
+        assertEq(hook.currentFloorTick(), maxOk);
+        assertEq(hook.floorTickUpper(), TickMath.MAX_TICK);
     }
 }
