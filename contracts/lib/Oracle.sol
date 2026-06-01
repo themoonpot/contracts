@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.28;
+pragma solidity 0.8.33;
 
 // Ported to Solidity 0.8.x from Uniswap v3-core `Oracle.sol`:
 // https://github.com/Uniswap/v3-core/blob/main/contracts/libraries/Oracle.sol

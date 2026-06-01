@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity 0.8.33;
 
 /// @title TEAPermuter
 /// @notice Format-preserving permutations based on a TEA-like Feistel construction
