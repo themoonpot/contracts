@@ -84,7 +84,6 @@ contract MoonpotHook is BaseHook, Ownable, ReentrancyGuard, IUnlockCallback {
     error OnlyManager();
     error PoolAlreadyInitialized();
     error ExactOutputTMPSellBlocked();
-    error InvalidTickBound();
 
     event CurrentFloorTickUpdated(int24 tick);
     event DefenseParamsUpdated(

@@ -10,9 +10,7 @@ contract MoonpotNFT is ERC721AQueryable, Ownable2Step {
     error InvalidAddress();
     error Unauthorized();
     error CannotResetManager();
-    error Nonexistent();
 
-    event MetadataUpdate(uint256 _tokenId);
     event BatchMetadataUpdate(uint256 _fromTokenId, uint256 _toTokenId);
     event ManagerSet(address indexed _manager);
     event BaseURILocked();

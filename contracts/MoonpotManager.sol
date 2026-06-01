@@ -139,9 +139,7 @@ contract MoonpotManager is
     error HookNotSet();
     error IncorrectAmount();
     error InvalidAddress();
-    error InvalidNFTCount();
     error InvalidRoundId();
-    error InvalidScannedCount();
     error InvalidTickBound();
     error InvalidVRFParams();
     error MaxPurchaseLimitExceeded();
