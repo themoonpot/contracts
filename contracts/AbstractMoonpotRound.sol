@@ -174,20 +174,20 @@ abstract contract AbstractMoonpotRound is IMoonpotRound {
 
     function getNFTClass(
         uint32 index
-    ) external view virtual override returns (NFTClass memory);
+    ) public view virtual override returns (NFTClass memory);
 
     function permute(
         uint256 index,
         uint256 seed
-    ) external view virtual override returns (uint256);
+    ) public view virtual override returns (uint256);
 
     function valueOf(
         uint256 tokenId
     ) external view returns (uint256 value, uint8 classId, uint32 drawId) {
         if (seed == 0) return (0, 0, 0);
 
-        uint256 draw = this.permute(tokenId % TOTAL_TOKENS, seed);
-        NFTClass memory nftClass = this.getNFTClass(uint32(draw));
+        uint256 draw = permute(tokenId % TOTAL_TOKENS, seed);
+        NFTClass memory nftClass = getNFTClass(uint32(draw));
 
         return (nftClass.usdcValue, uint8(nftClass.classId), uint32(draw));
     }

@@ -33,7 +33,7 @@ contract MoonpotRound1 is AbstractMoonpotRound {
 
     function getNFTClass(
         uint32 draw
-    ) external view override returns (NFTClass memory) {
+    ) public view override returns (NFTClass memory) {
         if (draw >= TOTAL_NFTS) return NFTClass(Class.None, 0);
 
         // Pool: $1,000,000
@@ -59,7 +59,7 @@ contract MoonpotRound1 is AbstractMoonpotRound {
     function permute(
         uint256 index,
         uint256 seed
-    ) external view override returns (uint256) {
+    ) public view override returns (uint256) {
         return TEAPermuter.permute17(index % TOTAL_NFTS, TOTAL_NFTS, seed, 6);
     }
 }
