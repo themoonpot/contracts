@@ -23,8 +23,6 @@ interface IMoonpotHook {
 
     function currentFloorTick() external view returns (int24);
 
-    function getMaxSellAmount() external view returns (uint256);
-
     function positionTickUpper() external view returns (int24);
 
     function positionTickLower() external view returns (int24);
