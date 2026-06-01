@@ -641,7 +641,7 @@ contract MoonpotManager is
 
         if (address(round) == address(0)) revert RoundMissing();
         if (round.getEndTime() == 0) revert RoundNotEnded();
-        if (round.getSeed() != 0) revert AlreadyFilled();
+        if (round.getSeed() != 0) revert AlreadySeeded();
 
         // Drop the previous request's routing so a never-fulfilled reqId
         // doesn't linger in storage (F-2026-17089).

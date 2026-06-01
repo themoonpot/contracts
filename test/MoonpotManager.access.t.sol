@@ -231,7 +231,7 @@ contract MoonpotManagerAccessTest is Test {
         round1.setSeed(0xABC);
         vm.stopPrank();
 
-        vm.expectRevert(MoonpotManager.AlreadyFilled.selector);
+        vm.expectRevert(MoonpotManager.AlreadySeeded.selector);
         manager.retryRoundReveal(1);
     }
 
