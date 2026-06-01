@@ -91,6 +91,21 @@ contract MoonpotHookSettersTest is Test {
         assertEq(tickSpacing, TICK_SPACING);
     }
 
+    /* --------------------------------- ownership ------------------------------------- */
+
+    function testTwoStepOwnershipTransfer() public {
+        address newOwner = address(0xB0B);
+        hook.transferOwnership(newOwner);
+        // Two-step (F-2026-17178): not effective until accepted.
+        assertEq(hook.owner(), owner, "owner must not change before accept");
+        assertEq(hook.pendingOwner(), newOwner);
+
+        vm.prank(newOwner);
+        hook.acceptOwnership();
+        assertEq(hook.owner(), newOwner);
+        assertEq(hook.pendingOwner(), address(0));
+    }
+
     /* --------------------------------- setManager ------------------------------------ */
 
     function testSetManagerHappy() public {

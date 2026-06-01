@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IUnlockCallback} from "@uniswap/v4-core/src/interfaces/callback/IUnlockCallback.sol";
@@ -29,7 +30,7 @@ import "./IMoonpotHook.sol";
 import "./MoonpotToken.sol";
 import {Oracle} from "./lib/Oracle.sol";
 
-contract MoonpotHook is BaseHook, Ownable, ReentrancyGuard, IUnlockCallback {
+contract MoonpotHook is BaseHook, Ownable2Step, ReentrancyGuard, IUnlockCallback {
     using CurrencyLibrary for Currency;
     using PoolIdLibrary for PoolKey;
     using StateLibrary for IPoolManager;
