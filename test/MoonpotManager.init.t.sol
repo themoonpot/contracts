@@ -38,10 +38,11 @@ contract MoonpotManagerInitTest is BaseFixture {
         mp.init(INITIAL_USDC, CEILING_TICK);
     }
 
-    function testInitRevertsOnZeroCeilingTick() public {
+    function testInitRevertsOnMisalignedCeilingTick() public {
         usdc.transfer(address(mp), INITIAL_USDC);
+        // ceilingTick must be aligned to tickSpacing (60); -245_879 is not (F-2026-17179).
         vm.expectRevert(MoonpotManager.InvalidTickBound.selector);
-        mp.init(INITIAL_USDC, 0);
+        mp.init(INITIAL_USDC, -245_879);
     }
 
     function testInitOnlyOwner() public {

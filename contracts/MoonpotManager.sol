@@ -198,7 +198,7 @@ contract MoonpotManager is
     function init(uint256 usdcAmount, int24 ceilingTick) external onlyOwner {
         if (address(hook) == address(0)) revert HookNotSet();
         if (isInitialized) revert AlreadyInitialized();
-        if (ceilingTick == 0) revert InvalidTickBound();
+        if (ceilingTick % tickSpacing != 0) revert InvalidTickBound();
         if (address(rounds[1]) == address(0)) revert RoundMissing();
 
         uint256 firstRoundPrice = rounds[1].getPricePerToken();
