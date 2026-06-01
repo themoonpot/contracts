@@ -65,8 +65,8 @@ contract MoonpotManager is
     uint256 public pendingLiquidityUsdc;
     mapping(uint256 => uint256) public lastInjectionCheckpoint;
 
-    uint24 lpFee = LPFeeLibrary.DYNAMIC_FEE_FLAG;
-    int24 tickSpacing = 60;
+    uint24 internal constant LP_FEE = LPFeeLibrary.DYNAMIC_FEE_FLAG;
+    int24 internal constant TICK_SPACING = 60;
 
     int24 public constant INIT_TICK_PREMIUM = 1_200;
     uint256 public constant MAX_PURCHASE_LIMIT = 10_000;
@@ -197,7 +197,7 @@ contract MoonpotManager is
     function init(uint256 usdcAmount, int24 ceilingTick) external onlyOwner {
         if (address(hook) == address(0)) revert HookNotSet();
         if (isInitialized) revert AlreadyInitialized();
-        if (ceilingTick % tickSpacing != 0) revert InvalidTickBound();
+        if (ceilingTick % TICK_SPACING != 0) revert InvalidTickBound();
         if (address(rounds[1]) == address(0)) revert RoundMissing();
 
         uint256 firstRoundPrice = rounds[1].getPricePerToken();
@@ -205,17 +205,17 @@ contract MoonpotManager is
 
         bool usdcIsToken0 = address(usdc) < address(tmp);
 
-        int24 tickLower = usdcIsToken0 ? ceilingTick : floorTick - tickSpacing;
-        int24 tickUpper = usdcIsToken0 ? floorTick + tickSpacing : ceilingTick;
+        int24 tickLower = usdcIsToken0 ? ceilingTick : floorTick - TICK_SPACING;
+        int24 tickUpper = usdcIsToken0 ? floorTick + TICK_SPACING : ceilingTick;
 
         int24 initTick;
         {
             int24 raw = usdcIsToken0
                 ? floorTick - INIT_TICK_PREMIUM
                 : floorTick + INIT_TICK_PREMIUM;
-            int24 remainder = raw % tickSpacing;
+            int24 remainder = raw % TICK_SPACING;
             initTick = remainder < 0
-                ? raw - (tickSpacing + remainder)
+                ? raw - (TICK_SPACING + remainder)
                 : raw - remainder;
         }
 
@@ -265,8 +265,8 @@ contract MoonpotManager is
         poolKey = PoolKey({
             currency0: Currency.wrap(t0),
             currency1: Currency.wrap(t1),
-            fee: lpFee,
-            tickSpacing: tickSpacing,
+            fee: LP_FEE,
+            tickSpacing: TICK_SPACING,
             hooks: IHooks(hook)
         });
 
@@ -838,9 +838,9 @@ contract MoonpotManager is
         bool usdcIsToken0 = address(usdc) < address(tmp);
         tick = usdcIsToken0 ? -tickRaw : tickRaw;
 
-        int24 remainder = tick % tickSpacing;
+        int24 remainder = tick % TICK_SPACING;
         tick = remainder < 0
-            ? tick - (tickSpacing + remainder)
+            ? tick - (TICK_SPACING + remainder)
             : tick - remainder;
     }
 
