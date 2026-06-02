@@ -28,10 +28,11 @@ import "../contracts/mocks/MockVRFCoordinator.sol";
 ///       --rpc-url http://127.0.0.1:8545 --broadcast --slow
 contract DriveBuy is Script {
     function run() external {
+        // Funder = the deployer that holds the minted MockUSDC (matches DeployLocal).
         uint256 deployerKey = vm.envOr(
             "PRIVATE_KEY",
             uint256(
-                0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+                0xb0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0
             )
         );
         // Throwaway buyer; its address is effectively random -> codeless on Base.

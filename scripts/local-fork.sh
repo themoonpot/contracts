@@ -13,6 +13,9 @@ set -euo pipefail
 
 : "${BASE_RPC_URL:?Set BASE_RPC_URL to a Base mainnet RPC (Alchemy/QuickNode recommended; the public node rate-limits forking)}"
 RPC="http://127.0.0.1:8545"
+# Dedicated local deployer (fresh key -> nonce 0 -> deterministic addresses).
+# Must match DEFAULT_DEPLOYER_KEY in DeployLocal.s.sol / DriveBuy.s.sol.
+DEPLOYER_KEY="${PRIVATE_KEY:-0xb0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
@@ -33,20 +36,25 @@ else
   cast block-number --rpc-url "$RPC" >/dev/null 2>&1 || { echo "Anvil failed to start; see /tmp/moonpot-anvil.log"; exit 1; }
 fi
 
-# 2. Deploy the system to the fork.
+# 2. Fund the deployer (fresh key has no balance on the fork).
+DEPLOYER_ADDR="$(cast wallet address --private-key "$DEPLOYER_KEY")"
+echo "Funding deployer $DEPLOYER_ADDR with 10000 ETH..."
+cast rpc anvil_setBalance "$DEPLOYER_ADDR" 0x21e19e0c9bab2400000 --rpc-url "$RPC" >/dev/null
+
+# 3. Deploy the system to the fork (deterministic addresses from the fresh deployer).
 echo "Deploying Moonpot system to the fork..."
-forge script scripts/DeployLocal.s.sol:DeployLocal \
+PRIVATE_KEY="$DEPLOYER_KEY" forge script scripts/DeployLocal.s.sol:DeployLocal \
   --rpc-url "$RPC" --broadcast --slow
 
 cat <<EOF
 
 ------------------------------------------------------------------------------
-Deployed. Copy the addresses logged above into env vars, then drive a buy:
+Deployed (addresses are deterministic across runs with this deployer). Drive a
+full buy -> VRF fulfill -> processBuy with the addresses logged above:
 
   export MANAGER=0x...   USDC=0x...   VRF=0x...   NFT=0x...
-  forge script scripts/DriveBuy.s.sol:DriveBuy --rpc-url $RPC --broadcast
+  forge script scripts/DriveBuy.s.sol:DriveBuy --rpc-url $RPC --broadcast --slow
 
-That runs approve -> buyFor -> vrf.fulfill -> processBuy and prints the NFTs
-minted to the buyer. Anvil keeps running; stop it with:  kill %1  (or the pid above)
+Anvil keeps running; stop it with:  kill %1  (or the pid above)
 ------------------------------------------------------------------------------
 EOF

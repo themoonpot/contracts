@@ -55,15 +55,18 @@ contract DeployLocal is Script {
     bytes32 constant VRF_KEY = bytes32(uint256(0xAA));
     uint256 constant VRF_SUB = 1;
 
+    // Dedicated local deployer (LOCAL ONLY). A *fresh* key: its address is
+    // codeless with nonce 0 on the fork, so every CREATE/CREATE2 address below
+    // is fully deterministic and reproducible across runs — which lets the
+    // frontend hardcode them in `local.ts`. `local-fork.sh` funds it via
+    // `anvil_setBalance`. (Anvil's default account[0] is a *contract* on Base
+    // with an unpredictable nonce, so it can't give stable addresses.)
+    uint256 constant DEFAULT_DEPLOYER_KEY =
+        0xb0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0;
+
     function run() external {
         // --- Config (all env-overridable) ---
-        // Default key = Anvil's account[0] (publicly known; LOCAL ONLY).
-        uint256 deployerKey = vm.envOr(
-            "PRIVATE_KEY",
-            uint256(
-                0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-            )
-        );
+        uint256 deployerKey = vm.envOr("PRIVATE_KEY", DEFAULT_DEPLOYER_KEY);
         address deployer = vm.addr(deployerKey);
         uint256 initialUsdc = vm.envOr("INITIAL_USDC", uint256(100_000e6));
         int24 ceilingTick = int24(vm.envOr("CEILING_TICK", int256(-245_880)));
