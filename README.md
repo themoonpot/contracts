@@ -67,25 +67,25 @@ Everything else (v4, Permit2) is the real Base code from the fork.
 ### One command
 
 ```sh
-BASE_RPC_URL=https://<your-base-rpc> ./script/local-fork.sh
+BASE_RPC_URL=https://<your-base-rpc> ./scripts/local-fork.sh
 # pin a block for determinism + RPC caching:
-BASE_RPC_URL=... BASE_FORK_BLOCK=33000000 ./script/local-fork.sh
+BASE_RPC_URL=... BASE_FORK_BLOCK=33000000 ./scripts/local-fork.sh
 ```
 
 This boots an Anvil fork on `http://127.0.0.1:8545`, deploys the full system
-([`script/DeployLocal.s.sol`](script/DeployLocal.s.sol) — mines + CREATE2-deploys
+([`scripts/DeployLocal.s.sol`](scripts/DeployLocal.s.sol) — mines + CREATE2-deploys
 the hook, deploys + wires everything, runs `init` + `start`), and prints every
 deployed address. Anvil keeps running so you can interact with it.
 
 ### Drive a full purchase
 
 Copy the addresses the deploy logged into env vars, then run the lifecycle
-([`script/DriveBuy.s.sol`](script/DriveBuy.s.sol) does
+([`scripts/DriveBuy.s.sol`](scripts/DriveBuy.s.sol) does
 `fund buyer → approve → buyFor → vrf.fulfill → processBuy`):
 
 ```sh
 export MANAGER=0x.. USDC=0x.. VRF=0x.. NFT=0x..
-forge script script/DriveBuy.s.sol:DriveBuy --rpc-url http://127.0.0.1:8545 --broadcast --slow
+forge script scripts/DriveBuy.s.sol:DriveBuy --rpc-url http://127.0.0.1:8545 --broadcast --slow
 ```
 
 It prints the NFTs minted and TMP balance for the buyer. Tune the purchase with
@@ -100,7 +100,7 @@ If you'd rather manage Anvil yourself:
 anvil --fork-url $BASE_RPC_URL            # add --fork-block-number <n> to pin
 
 # terminal 2
-forge script script/DeployLocal.s.sol:DeployLocal \
+forge script scripts/DeployLocal.s.sol:DeployLocal \
   --rpc-url http://127.0.0.1:8545 --broadcast --slow
 # ...then DriveBuy as above, or poke individual calls with `cast`.
 ```
@@ -419,8 +419,7 @@ parameter. Smaller standalone modules (`TMPOnlySystem`, `MockUSDCOnly`,
 │   ├── lib/                     # TEAPermuter (Feistel) + Oracle (v3 TWAP port)
 │   └── mocks/                  # local test doubles (MockUSDC, MockVRFCoordinator, ...)
 ├── test/                       # Foundry tests (unit + fork/)
-├── script/                     # Foundry scripts: DeployLocal, DriveBuy (.s.sol) + local-fork.sh
-├── scripts/                    # operational TS helpers (mine-hook-salt, calculate-ceiling-tick)
+├── scripts/                    # Foundry scripts (DeployLocal, DriveBuy, local-fork.sh) + TS helpers (mine-hook-salt, calculate-ceiling-tick)
 ├── ignition/                   # Hardhat Ignition deploy modules + parameters
 ├── lib/v4-hooks-public/        # Uniswap v4 + Permit2 sources (vendored submodule)
 ├── foundry.toml

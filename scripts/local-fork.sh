@@ -6,8 +6,8 @@
 #
 # Requires: foundry (anvil, forge, cast) and a Base mainnet RPC.
 #
-#   BASE_RPC_URL=https://<base-rpc> ./script/local-fork.sh
-#   BASE_RPC_URL=... BASE_FORK_BLOCK=33000000 ./script/local-fork.sh   # pinned
+#   BASE_RPC_URL=https://<base-rpc> ./scripts/local-fork.sh
+#   BASE_RPC_URL=... BASE_FORK_BLOCK=33000000 ./scripts/local-fork.sh   # pinned
 #
 set -euo pipefail
 
@@ -35,7 +35,7 @@ fi
 
 # 2. Deploy the system to the fork.
 echo "Deploying Moonpot system to the fork..."
-forge script script/DeployLocal.s.sol:DeployLocal \
+forge script scripts/DeployLocal.s.sol:DeployLocal \
   --rpc-url "$RPC" --broadcast --slow
 
 cat <<EOF
@@ -44,7 +44,7 @@ cat <<EOF
 Deployed. Copy the addresses logged above into env vars, then drive a buy:
 
   export MANAGER=0x...   USDC=0x...   VRF=0x...   NFT=0x...
-  forge script script/DriveBuy.s.sol:DriveBuy --rpc-url $RPC --broadcast
+  forge script scripts/DriveBuy.s.sol:DriveBuy --rpc-url $RPC --broadcast
 
 That runs approve -> buyFor -> vrf.fulfill -> processBuy and prints the NFTs
 minted to the buyer. Anvil keeps running; stop it with:  kill %1  (or the pid above)
