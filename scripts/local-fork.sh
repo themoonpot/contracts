@@ -24,8 +24,14 @@ if cast block-number --rpc-url "$RPC" >/dev/null 2>&1; then
   echo "Reusing Anvil already listening on $RPC"
 else
   echo "Starting Anvil fork of Base..."
-  ANVIL_ARGS=(--fork-url "$BASE_RPC_URL" --silent)
-  [ -n "${BASE_FORK_BLOCK:-}" ] && ANVIL_ARGS+=(--fork-block-number "$BASE_FORK_BLOCK")
+  # Pin a block by default so the deploy block is reproducible (the frontend's
+  # VITE_DEPLOY_BLOCK must match it). Needs an archive-capable RPC (Alchemy's
+  # free Base tier works); set BASE_FORK_BLOCK= to fork at latest instead.
+  FORK_BLOCK="${BASE_FORK_BLOCK-33000000}"
+  # Override the chain id (31337) so wallets treat the fork as a distinct
+  # network from real Base — avoids RPC collisions / accidental mainnet txs.
+  ANVIL_ARGS=(--fork-url "$BASE_RPC_URL" --chain-id 31337 --silent)
+  [ -n "$FORK_BLOCK" ] && ANVIL_ARGS+=(--fork-block-number "$FORK_BLOCK")
   nohup anvil "${ANVIL_ARGS[@]}" >/tmp/moonpot-anvil.log 2>&1 &
   ANVIL_PID=$!
   echo "  anvil pid=$ANVIL_PID (log: /tmp/moonpot-anvil.log)"
