@@ -330,6 +330,43 @@ pnpm hardhat ignition deploy ignition/modules/MoonpotSystem.ts \
 
 Smaller standalone modules (`TMPOnlySystem`, `MockUSDCOnly`, `MockVRFOnly`) are available for partial / testnet deployments.
 
+### Local fork testing
+
+To exercise the whole system locally without deploying to mainnet, run it against
+a **local Anvil fork of Base**. The system depends on the live Uniswap v4
+`PoolManager` / `PositionManager` and `Permit2` (which only exist on Base), so a
+fork gives you a local copy of that state and `init` can create the real pool.
+Two pieces are swapped for local-only doubles: **USDC → `MockUSDC`** (the deployer
+is minted 10B, so no whale needed) and **VRF → the mock coordinator** (Chainlink
+has no off-chain node on a fork; you call `fulfill(reqId)` to simulate the callback).
+
+One command (boots the fork, deploys, prints next steps):
+
+```sh
+BASE_RPC_URL=https://<your-base-rpc> ./script/local-fork.sh
+# pin a block for determinism/caching: BASE_FORK_BLOCK=33000000 ...
+```
+
+Then drive a full buy → VRF fulfill → `processBuy` (copy the addresses logged by
+the deploy into the env vars):
+
+```sh
+export MANAGER=0x.. USDC=0x.. VRF=0x.. NFT=0x..
+forge script script/DriveBuy.s.sol:DriveBuy --rpc-url http://127.0.0.1:8545 --broadcast --slow
+```
+
+Under the hood these are two Foundry scripts you can also run directly against an
+already-running `anvil --fork-url $BASE_RPC_URL`:
+[`script/DeployLocal.s.sol`](script/DeployLocal.s.sol) (mines + CREATE2-deploys the
+hook, deploys + wires everything, `init` + `start`) and
+[`script/DriveBuy.s.sol`](script/DriveBuy.s.sol).
+
+> **Fork gotcha:** the NFT recipient must be a *codeless* EOA on the fork. Anvil's
+> default account `0xf39F…2266` is a **live contract on Base mainnet**, so minting
+> an NFT to it triggers `onERC721Received` and reverts. `DriveBuy` sidesteps this
+> by deriving a fresh throwaway buyer and funding it from the deployer — if you
+> drive buys by hand, use a fresh address as the buyer, not the default account.
+
 ### Project layout
 
 ```

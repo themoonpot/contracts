@@ -27,7 +27,7 @@ const config: HardhatUserConfig = {
   solidity: {
     profiles: {
       default: {
-        version: "0.8.28",
+        version: "0.8.33",
         settings: {
           metadata: {
             bytecodeHash: "none",
@@ -40,7 +40,7 @@ const config: HardhatUserConfig = {
         },
       },
       production: {
-        version: "0.8.28",
+        version: "0.8.33",
         settings: {
           metadata: {
             bytecodeHash: "none",
