@@ -65,23 +65,26 @@ contract MoonpotManagerInitTest is BaseFixture {
         assertEq(tmp.totalSupply(), 0);
     }
 
-    function testInitSetsFloorTickOnHookViaStart() public {
+    function testInitSetsFloorTickOnHook() public {
         usdc.transfer(address(mp), INITIAL_USDC);
         mp.init(INITIAL_USDC, CEILING_TICK);
 
-        // currentFloorTick is set by `start()`, not `init()`.
-        assertEq(hook.currentFloorTick(), 0);
-
-        mp.start();
-        // After start: a price-derived floor tick is written. Sign depends on
-        // token ordering; just assert it changed from its default.
-        assertTrue(hook.currentFloorTick() != 0);
+        // init() now configures the floor band itself, so the pool is never
+        // live+funded with the zero-default floor before start() (F-2026-17240).
+        int24 floorAfterInit = hook.currentFloorTick();
+        assertTrue(floorAfterInit != 0);
+        assertTrue(hook.floorTickSet());
         // floorTickLower/Upper widen by poolKey.tickSpacing; but our stub
         // PoolManager never received a `beforeInitialize`, so the hook's
         // poolKey.tickSpacing remains 0 in this fixture. Bounds therefore
         // collapse onto currentFloorTick.
-        assertEq(hook.floorTickLower(), hook.currentFloorTick());
-        assertEq(hook.floorTickUpper(), hook.currentFloorTick());
+        assertEq(hook.floorTickLower(), floorAfterInit);
+        assertEq(hook.floorTickUpper(), floorAfterInit);
+
+        mp.start();
+        // start() for round 1 derives the floor from the same round-1 price, so
+        // the value is unchanged.
+        assertEq(hook.currentFloorTick(), floorAfterInit);
     }
 }
 

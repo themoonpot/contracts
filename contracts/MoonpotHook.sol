@@ -52,6 +52,9 @@ contract MoonpotHook is BaseHook, Ownable2Step, ReentrancyGuard, IUnlockCallback
 
     PoolKey public poolKey;
     int24 public currentFloorTick;
+    // Sentinel: distinguishes a real floor at tick 0 from the never-set default,
+    // so the sell-defense path can never run on an uninitialized floor (F-2026-17240).
+    bool public floorTickSet;
 
     uint256 public _positionId;
     int24 public floorTickLower;
@@ -86,6 +89,7 @@ contract MoonpotHook is BaseHook, Ownable2Step, ReentrancyGuard, IUnlockCallback
     error OnlyManager();
     error PoolAlreadyInitialized();
     error ExactOutputTMPSellBlocked();
+    error FloorTickNotSet();
 
     event CurrentFloorTickUpdated(int24 tick);
     event DefenseParamsUpdated(
@@ -472,6 +476,10 @@ contract MoonpotHook is BaseHook, Ownable2Step, ReentrancyGuard, IUnlockCallback
         bool usdcIsCurrency0,
         int24 currentTick
     ) internal view returns (uint24) {
+        // Never tax against the zero-default floor: the manager must have set a
+        // real floor band first (F-2026-17240). Guards the whole sell path since
+        // _beforeSwap calls this before _computeMaxTmpSell.
+        if (!floorTickSet) revert FloorTickNotSet();
         int24 ticksAboveFloor = currentTick - currentFloorTick;
         // When usdc is currency0 a higher tick means a lower TMP price, so the
         // distance-above-floor is inverted relative to TMP price (F-2026-17059).
@@ -553,6 +561,7 @@ contract MoonpotHook is BaseHook, Ownable2Step, ReentrancyGuard, IUnlockCallback
         currentFloorTick = tick;
         floorTickLower = tick - spacing;
         floorTickUpper = tick + spacing;
+        floorTickSet = true;
 
         emit CurrentFloorTickUpdated(tick);
     }

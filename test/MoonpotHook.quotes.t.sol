@@ -149,6 +149,24 @@ contract MoonpotHookQuotesTest is Test {
         assertEq(hook.exposed_calculateTax(500), 50_500);
     }
 
+    /* ------------------ _defenseTax: F-2026-17240 unset-floor sentinel ---------------- */
+
+    function testDefenseTaxRevertsBeforeFloorTickSet() public {
+        // Fresh hook: the floor tick has never been set, so it sits at its zero
+        // default. The defense tax must not run on that uninitialized floor.
+        assertFalse(hook.floorTickSet());
+        vm.expectRevert(MoonpotHook.FloorTickNotSet.selector);
+        hook.exposed_defenseTax(false, 1_000);
+    }
+
+    function testDefenseTaxAllowedOnceFloorTickSet() public {
+        hook.setManager(address(this));
+        hook.setCurrentFloorTick(1_000);
+        assertTrue(hook.floorTickSet());
+        // No revert once the floor band has been initialized.
+        hook.exposed_defenseTax(false, 1_000);
+    }
+
     /* ------------------ _defenseTax: F-2026-17059 token-ordering ---------------------- */
     // When usdc is currency0 a higher pool tick = LOWER TMP price, so the
     // ticks-above-floor sign must be inverted before feeding _calculateTax.

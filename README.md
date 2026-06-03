@@ -335,7 +335,7 @@ pnpm hardhat build  # Hardhat 4 build → artifacts/
 
 ### Test
 
-The test suite is Foundry-based: **217 unit tests** (`test/*.t.sol`) plus
+The test suite is Foundry-based: **219 unit tests** (`test/*.t.sol`) plus
 **11 Base-mainnet fork tests** (`test/fork/*.fork.t.sol`) covering the
 v4-pool-state-dependent paths in `MoonpotHook`.
 

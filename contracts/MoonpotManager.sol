@@ -328,6 +328,12 @@ contract MoonpotManager is
             liquidity
         );
 
+        // Configure the floor band in the same tx that makes the pool live and
+        // funded, so the sell-defense path is never reachable with the zero
+        // default floor before start() (F-2026-17240). start() re-affirms the
+        // same round-1 floor.
+        IMoonpotHook(hook).setCurrentFloorTick(floorTick);
+
         isInitialized = true;
     }
 
