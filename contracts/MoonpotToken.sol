@@ -19,7 +19,7 @@ contract MoonpotToken is ERC20, Ownable2Step {
         _;
     }
 
-    constructor() ERC20("The Moonpot Token", "TMP") Ownable(msg.sender) {}
+    constructor() ERC20("The Moonpot", "TMP") Ownable(msg.sender) {}
 
     function setManager(address _manager) external onlyOwner {
         if (_manager == address(0)) revert InvalidAddress();

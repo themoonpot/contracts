@@ -16,7 +16,7 @@ contract MoonpotTokenTest is Test {
     }
 
     function testConstructorSetsNameAndSymbol() public view {
-        assertEq(token.name(), "The Moonpot Token");
+        assertEq(token.name(), "The Moonpot");
         assertEq(token.symbol(), "TMP");
         assertEq(token.totalSupply(), 0);
     }
