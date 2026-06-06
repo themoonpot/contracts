@@ -3,10 +3,9 @@ pragma solidity 0.8.33;
 
 import "../MoonpotManager.sol";
 
-/// @dev Test-only manager. Identical logic to {MoonpotManager} (inherited, not
-/// re-implemented); only the contract name differs so a mock deploy is
-/// unmistakable on explorers. Not for production.
-contract MockMoonpotManager is MoonpotManager {
+/// @dev Test-only manager. Inherits {MoonpotManager} logic byte-for-byte; only
+/// the contract name differs. Not for production.
+contract MockManager is MoonpotManager {
     constructor(
         address _usdc,
         address _tmp,

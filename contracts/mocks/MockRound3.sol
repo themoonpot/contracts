@@ -3,9 +3,9 @@ pragma solidity 0.8.33;
 
 import "../MoonpotRound3.sol";
 
-/// @dev Test-only round. Identical logic to {MoonpotRound3} (inherited);
-/// only the contract name differs. Not for production.
-contract MockMoonpotRound3 is MoonpotRound3 {
+/// @dev Test-only round. Inherits {MoonpotRound3} logic; only the contract
+/// name differs. Not for production.
+contract MockRound3 is MoonpotRound3 {
     constructor(
         address _manager,
         address _usdc

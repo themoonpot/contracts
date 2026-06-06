@@ -1,17 +1,18 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
-// Deploy mode. `MOONPOT_MODE=mock` deploys the test NFT — distinct name/symbol
-// ("Moonpot Test NFT" / "tTMPNFT") and contract name (MockMoonpotNFT) — so a
-// mock deploy can never be mistaken for the real collection. Pair it with a
-// MockMoonpotToken (TMPOnlySystem in the same mode) and a mock params file.
-// Anything else (including unset) deploys the production system.
+// Deploy mode. `MOONPOT_MODE=mock` deploys the test NFT — unrelated name/symbol
+// ("Test NFT" / "TSTN") and contract name (MockNFT) — so a mock deploy can
+// never be mistaken for the real collection. Pair it with a MockToken
+// (TMPOnlySystem in the same mode) and a mock params file. Anything else
+// (including unset) deploys the production system.
 const MOCK = (process.env.MOONPOT_MODE ?? "production").toLowerCase() === "mock";
 console.log(`[MoonpotSystem] deploy mode: ${MOCK ? "MOCK" : "production"}`);
 
-// In mock mode each contract is deployed from its Mock* subclass — identical
-// logic, distinct name — so nothing in a test deploy can be mistaken for the
-// real system on explorers/wallets.
-const c = (name: string) => (MOCK ? `Mock${name}` : name);
+// In mock mode each contract is deployed from its de-branded Mock* subclass
+// (e.g. MoonpotManager -> MockManager) — identical logic, no "Moonpot" anywhere
+// — so nothing in a test deploy can be mistaken for the real system.
+const c = (name: string) =>
+  MOCK ? `Mock${name.replace("Moonpot", "")}` : name;
 
 const MoonpotSystem = buildModule("MoonpotSystem", (m) => {
   const vrfCoordinator = m.getParameter("vrfCoordinator");

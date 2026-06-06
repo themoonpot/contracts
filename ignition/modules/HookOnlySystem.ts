@@ -1,7 +1,7 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
-// `MOONPOT_MODE=mock` deploys MockMoonpotHook (same logic + permission flags,
-// distinct contract name). Must match the artifact used to mine the salt.
+// `MOONPOT_MODE=mock` deploys MockHook (same logic + permission flags, distinct
+// contract name). Must match the artifact used to mine the salt.
 const MOCK = (process.env.MOONPOT_MODE ?? "production").toLowerCase() === "mock";
 
 const HookOnlySystem = buildModule("HookOnlySystem", (m) => {
@@ -13,7 +13,7 @@ const HookOnlySystem = buildModule("HookOnlySystem", (m) => {
   const owner = m.getParameter("owner");
 
   const hook = m.contract(
-    MOCK ? "MockMoonpotHook" : "MoonpotHook",
+    MOCK ? "MockHook" : "MoonpotHook",
     [poolManager, positionManager, permit2, usdc, tmp, owner],
     { id: "Hook" },
   );

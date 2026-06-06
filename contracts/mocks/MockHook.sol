@@ -4,11 +4,10 @@ pragma solidity 0.8.33;
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import "../MoonpotHook.sol";
 
-/// @dev Test-only hook. Identical logic to {MoonpotHook} (inherited, not
-/// re-implemented); only the contract name differs. Still must be deployed at a
-/// CREATE2-mined address carrying the same v4 permission flags. Not for
-/// production.
-contract MockMoonpotHook is MoonpotHook {
+/// @dev Test-only hook. Inherits {MoonpotHook} logic byte-for-byte; only the
+/// contract name differs. Still must be deployed at a CREATE2-mined address
+/// carrying the same v4 permission flags. Not for production.
+contract MockHook is MoonpotHook {
     constructor(
         IPoolManager _poolManager,
         address _posm,

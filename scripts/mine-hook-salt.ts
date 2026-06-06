@@ -27,11 +27,11 @@ const TMP = env("TMP", "0x58f8c17ea286A085BBfE0fC1cfa3Ce39D410aEE0");
 const OWNER = env("OWNER", "0xda669Fb34A24E7E64Ee2d3BAe98E4734945c4cDB");
 const PERMIT2 = env("PERMIT2", "0x000000000022D473030F116dDEE9F6B43aC78BA3");
 
-// In mock mode the hook is deployed from MockMoonpotHook, so mine against that
-// artifact (its constructor/bytecode is what gets CREATE2-deployed).
+// In mock mode the hook is deployed from MockHook, so mine against that artifact
+// (its constructor/bytecode is what gets CREATE2-deployed).
 const MOCK = (process.env.MOONPOT_MODE ?? "production").toLowerCase() === "mock";
 const HOOK_ARTIFACT = MOCK
-  ? "./artifacts/contracts/mocks/MockMoonpotHook.sol/MockMoonpotHook.json"
+  ? "./artifacts/contracts/mocks/MockHook.sol/MockHook.json"
   : "./artifacts/contracts/MoonpotHook.sol/MoonpotHook.json";
 
 const CREATE2_FACTORY = "0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed";
