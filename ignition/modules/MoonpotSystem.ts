@@ -1,5 +1,18 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
+// Deploy mode. `MOONPOT_MODE=mock` deploys the test NFT — distinct name/symbol
+// ("Moonpot Test NFT" / "tTMPNFT") and contract name (MockMoonpotNFT) — so a
+// mock deploy can never be mistaken for the real collection. Pair it with a
+// MockMoonpotToken (TMPOnlySystem in the same mode) and a mock params file.
+// Anything else (including unset) deploys the production system.
+const MOCK = (process.env.MOONPOT_MODE ?? "production").toLowerCase() === "mock";
+console.log(`[MoonpotSystem] deploy mode: ${MOCK ? "MOCK" : "production"}`);
+
+// In mock mode each contract is deployed from its Mock* subclass — identical
+// logic, distinct name — so nothing in a test deploy can be mistaken for the
+// real system on explorers/wallets.
+const c = (name: string) => (MOCK ? `Mock${name}` : name);
+
 const MoonpotSystem = buildModule("MoonpotSystem", (m) => {
   const vrfCoordinator = m.getParameter("vrfCoordinator");
   const vrfKeyHash = m.getParameter("vrfKeyHash");
@@ -16,27 +29,33 @@ const MoonpotSystem = buildModule("MoonpotSystem", (m) => {
   // ERC20 surface we need (`transfer`, `approve`); the real USDC is NOT mocked
   // in production.
   const usdc = m.contractAt("MockUSDC", m.getParameter("usdc"), { id: "USDC" });
-  const tmp = m.contractAt("MoonpotToken", m.getParameter("tmp"), {
+  const tmp = m.contractAt(c("MoonpotToken"), m.getParameter("tmp"), {
     id: "TMP",
   });
-  const hook = m.contractAt("MoonpotHook", m.getParameter("hook"), {
+  const hook = m.contractAt(c("MoonpotHook"), m.getParameter("hook"), {
     id: "Hook",
   });
-  const nft = m.contract("MoonpotNFT", [], { id: "NFT" });
+  const nft = m.contract(c("MoonpotNFT"), [], {
+    id: "NFT",
+  });
 
-  const manager = m.contract("MoonpotManager", [
-    usdc,
-    tmp,
-    nft,
-    company,
-    vrfCoordinator,
-    vrfKeyHash,
-    vrfSubId,
-    poolManager,
-    positionManager,
-    permit2,
-    hook,
-  ]);
+  const manager = m.contract(
+    c("MoonpotManager"),
+    [
+      usdc,
+      tmp,
+      nft,
+      company,
+      vrfCoordinator,
+      vrfKeyHash,
+      vrfSubId,
+      poolManager,
+      positionManager,
+      permit2,
+      hook,
+    ],
+    { id: "Manager" },
+  );
 
   const setHookManager = m.call(hook, "setManager", [manager]);
   const setTmpManager = m.call(tmp, "setManager", [manager]);
@@ -45,11 +64,11 @@ const MoonpotSystem = buildModule("MoonpotSystem", (m) => {
   const baseURI = "https://api.themoonpot.com/nft/";
   m.call(nft, "setBaseURI", [baseURI]);
 
-  const round1 = m.contract("MoonpotRound1", [manager, usdc]);
-  const round2 = m.contract("MoonpotRound2", [manager, usdc]);
-  const round3 = m.contract("MoonpotRound3", [manager, usdc]);
-  const round4 = m.contract("MoonpotRound4", [manager, usdc]);
-  const round5 = m.contract("MoonpotRound5", [manager, usdc]);
+  const round1 = m.contract(c("MoonpotRound1"), [manager, usdc], { id: "Round1" });
+  const round2 = m.contract(c("MoonpotRound2"), [manager, usdc], { id: "Round2" });
+  const round3 = m.contract(c("MoonpotRound3"), [manager, usdc], { id: "Round3" });
+  const round4 = m.contract(c("MoonpotRound4"), [manager, usdc], { id: "Round4" });
+  const round5 = m.contract(c("MoonpotRound5"), [manager, usdc], { id: "Round5" });
 
   const setR1 = m.call(manager, "setRound", [1, round1], { id: "SetRound1" });
   const setR2 = m.call(manager, "setRound", [2, round2], { id: "SetRound2" });

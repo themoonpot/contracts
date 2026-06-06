@@ -10,8 +10,11 @@
 
 import { parseUnits, formatUnits } from "viem";
 
-const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-const TMP_ADDRESS = "0x58f8c17ea286A085BBfE0fC1cfa3Ce39D410aEE0";
+// Override via env for a test deploy: `USDC=0x.. TMP=0x.. npx tsx scripts/calculate-ceiling-tick.ts`.
+// Token ordering (USDC vs TMP address) flips the tick sign, so this must use
+// the actually-deployed addresses.
+const USDC_ADDRESS = process.env.USDC ?? "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+const TMP_ADDRESS = process.env.TMP ?? "0x58f8c17ea286A085BBfE0fC1cfa3Ce39D410aEE0";
 const TICK_SPACING = 60;
 const CEILING_MULTIPLIER = 10n;
 const INIT_TICK_PREMIUM = 1200;
