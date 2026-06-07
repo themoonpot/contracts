@@ -1,8 +1,8 @@
 /**
- * Offline helper. Derives `positionTickUpper` (the LP ceiling tick) from the
- * last-round price × CEILING_MULTIPLIER and the pool's tick spacing. Output is
- * already pinned in `ignition/parameters/{mainnet,test}.json`; the script is
- * here for transparency on how that value was chosen.
+ * Offline helper. Derives the LP ceiling tick from the last-round price ×
+ * CEILING_MULTIPLIER and the pool's tick spacing. Pass the printed value to the
+ * deploy as the `CEILING_TICK` env var (scripts/DeployBase.s.sol) — only needed
+ * if the deployed USDC/TMP address ordering differs from the pinned default.
  *
  * Only the last entry in ROUND_PRICES affects the ceiling; the earlier entries
  * are illustrative and may not match the production round schedule.

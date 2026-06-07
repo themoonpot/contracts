@@ -14,16 +14,6 @@ const config: HardhatUserConfig = {
     hardhatToolboxViemPlugin,
     hardhatVerify,
   ],
-  ignition: {
-    blockPollingInterval: 20_000,
-    maxFeeBumps: 5,
-    timeBeforeBumpingFees: 120_000,
-    strategyConfig: {
-      create2: {
-        salt: "0x000000000000000000000000000000000000000000000000000000000000615f",
-      },
-    },
-  },
   solidity: {
     profiles: {
       default: {
