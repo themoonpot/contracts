@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.33;
+
+import "./lib/TEAPermuter.sol";
+import "./AbstractMoonpotRound.sol";
+
+contract MoonpotRound12 is AbstractMoonpotRound {
+    constructor(
+        address _manager,
+        address _usdc
+    )
+        AbstractMoonpotRound(
+            /* Round ID */
+            12,
+            /* Manager Address */
+            _manager,
+            /* USDC Address */
+            _usdc,
+            /* Price */
+            1.20e6,
+            /* Total Tokens */
+            30_000_000,
+            /* Total NFTs */
+            99_991,
+            /* Share Community */
+            1.00e6,
+            /* Share Company */
+            0.10e6,
+            /* Share Liquidity */
+            0.10e6
+        )
+    {}
+
+    function getNFTClass(
+        uint32 draw
+    ) public view override returns (NFTClass memory) {
+        if (draw >= TOTAL_NFTS) return NFTClass(Class.None, 0);
+
+        if (draw == 0) return NFTClass(Class.Class1, 3_000_000e6); // 1x $3,000,000
+        if (draw <= 2) return NFTClass(Class.Class2, 1_500_000e6); // 2x $1,500,000
+        if (draw <= 5) return NFTClass(Class.Class3, 750_000e6); // 3x $750,000
+        if (draw <= 10) return NFTClass(Class.Class4, 300_000e6); // 5x $300,000
+        if (draw <= 20) return NFTClass(Class.Class5, 150_000e6); // 10x $150,000
+        if (draw <= 40) return NFTClass(Class.Class6, 75_000e6); // 20x $75,000
+        if (draw <= 90) return NFTClass(Class.Class7, 30_000e6); // 50x $30,000
+        if (draw <= 190) return NFTClass(Class.Class8, 15_000e6); // 100x $15,000
+        if (draw <= 490) return NFTClass(Class.Class9, 7_500e6); // 300x $7,500
+        if (draw <= 990) return NFTClass(Class.Class10, 3_000e6); // 500x $3,000
+        if (draw <= 1990) return NFTClass(Class.Class11, 1_500e6); // 1_000x $1,500
+        if (draw <= 4990) return NFTClass(Class.Class12, 750e6); // 3_000x $750
+        if (draw <= 9990) return NFTClass(Class.Class13, 300e6); // 5_000x $300
+        if (draw <= 19990) return NFTClass(Class.Class14, 150e6); // 10_000x $150
+        if (draw <= 49990) return NFTClass(Class.Class15, 75_000_000); // 30_000x $75
+
+        return NFTClass(Class.Class16, 30e6); // 50_000x $30
+    }
+
+    function permute(
+        uint256 index,
+        uint256 seed
+    ) public view override returns (uint256) {
+        return TEAPermuter.permute17(index % TOTAL_NFTS, TOTAL_NFTS, seed, 6);
+    }
+}
