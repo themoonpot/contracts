@@ -9,7 +9,11 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
+import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
+import {FullMath} from "@uniswap/v4-core/src/libraries/FullMath.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IMoonpotRound} from "../contracts/IMoonpotRound.sol";
 
 import "../contracts/MoonpotHook.sol";
 import "../contracts/MoonpotManager.sol";
@@ -122,10 +126,28 @@ contract DeployBase is Script {
             Hooks.BEFORE_SWAP_FLAG |
             Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG;
 
+    int24 constant TICK_SPACING = 60;
+    // LP ceiling = final-round price x this multiple.
+    uint256 constant CEILING_MULTIPLIER = 10;
+
+    /// @dev Price (USDC, 6dp) -> tick, sign-aware. Mirrors the manager's own
+    /// `_calculateTickFromPrice` so the LP ceiling is computed identically to
+    /// the floor — no manual CEILING_TICK input, and never the wrong sign.
+    function _priceToTick(
+        uint256 priceUSDC,
+        bool usdcIsToken0
+    ) internal pure returns (int24 tick) {
+        uint256 ratio = FullMath.mulDiv(priceUSDC, 1 << 192, 1e18);
+        uint160 sqrtPriceX96 = uint160(Math.sqrt(ratio));
+        int24 tickRaw = TickMath.getTickAtSqrtPrice(sqrtPriceX96);
+        tick = usdcIsToken0 ? -tickRaw : tickRaw;
+        int24 r = tick % TICK_SPACING;
+        tick = r < 0 ? tick - (TICK_SPACING + r) : tick - r;
+    }
+
     function run() external {
         bool mock = vm.envOr("MOCK", false);
         uint256 initialUsdc = vm.envOr("INITIAL_USDC", uint256(1_000e6));
-        int24 ceilingTick = int24(vm.envOr("CEILING_TICK", int256(-245_880)));
         address vrfCoordinator = vm.envOr(
             "VRF_COORDINATOR",
             VRF_COORDINATOR_DEFAULT
@@ -167,16 +189,8 @@ contract DeployBase is Script {
             nft = new MoonpotNFT();
         }
 
-        // Guard CEILING_TICK against the actual token ordering. The tick sign
-        // depends on whether USDC sorts below TMP; passing the wrong sign does
-        // NOT revert in init() — it silently misconfigures the LP ceiling. Fail
-        // fast here instead. Recompute the value with calculate-ceiling-tick.ts:
-        // usdcIsToken0=false -> -245880, usdcIsToken0=true -> 245820.
+        // Token ordering — drives the ceiling-tick sign (computed before init).
         bool usdcIsToken0 = uint160(usdc) < uint160(address(tmp));
-        require(
-            usdcIsToken0 == (ceilingTick > 0),
-            "CEILING_TICK sign wrong for USDC/TMP ordering"
-        );
 
         // 3. Mine + CREATE2-deploy the hook so its address carries the v4 flags.
         bytes memory args = abi.encode(
@@ -296,7 +310,13 @@ contract DeployBase is Script {
             mp.setRound(i + 1, r[i]);
         }
 
-        // 7. Seed the manager, create the pool, open round 1.
+        // 7. Seed the manager, create the pool, open round 1. The LP ceiling
+        // tick is derived from the final round price x CEILING_MULTIPLIER,
+        // sign-aware — no manual input, always the right sign for the ordering.
+        int24 ceilingTick = _priceToTick(
+            IMoonpotRound(r[27]).getPricePerToken() * CEILING_MULTIPLIER,
+            usdcIsToken0
+        );
         IERC20(usdc).transfer(address(mp), initialUsdc);
         mp.init(initialUsdc, ceilingTick);
         mp.start();
@@ -319,6 +339,7 @@ contract DeployBase is Script {
         console.log("deployer        %s", deployer);
         console.log("company         %s", company);
         console.log("usdcIsToken0    %s", usdcIsToken0);
+        console.log("CEILING TICK    %s", vm.toString(int256(ceilingTick)));
         console.log("USDC            %s", usdc);
         console.log("TMP             %s", address(tmp));
         console.log("NFT             %s", address(nft));

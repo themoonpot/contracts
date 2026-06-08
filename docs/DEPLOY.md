@@ -47,29 +47,27 @@ Both use real Chainlink VRF. Plan: **deploy mock → validate → deploy product
 | `SAFE` | none | multisig to receive ownership of all contracts |
 | `VRF_SUB_ID` | — | **required** |
 | `INITIAL_USDC` | `1000e6` | LP seed (base units) |
-| `CEILING_TICK` | `-245880` | LP ceiling ($2.10×10=$21). Sign depends on token ordering: **-245880** if `usdcIsToken0=false`, **245820** if `true`. The script **reverts on a wrong sign**, so dry-run first to learn the ordering. |
 | `COMPANY` | `SAFE` if set, else deployer | fee recipient |
 | `VRF_COORDINATOR` / `VRF_KEY_HASH` | Base defaults | real Chainlink VRF |
 | `PRIVATE_KEY` | — | alternative to `--account` |
 
 ---
 
-## Dry run first (always)
+## Dry run first (recommended)
 
 Run the **exact** command **without `--broadcast`** to simulate the whole deploy
 against forked Base state — it deploys all 28 rounds, mines the hook, runs `init`
-(creating the v4 pool), `start`, and the Safe handoff, then reports addresses + gas.
+(creating the v4 pool), `start`, and the Safe handoff, then reports every address,
+the pool id, the auto-computed `CEILING TICK`, and the gas estimate.
 
 ```bash
-# against a local Base-fork anvil, or directly: --rpc-url "$BASE_RPC_URL"
 MOCK=true VRF_SUB_ID=1 forge script scripts/DeployBase.s.sol:DeployBase \
-  --rpc-url http://127.0.0.1:8545 --sender <deployer-address>
+  --rpc-url "$BASE_RPC_URL" --account moonpot-deployer
 ```
 
-Read **`usdcIsToken0`** from the output and set `CEILING_TICK` accordingly
-(`false` → `-245880`, `true` → `245820`). Token addresses are deterministic per
-(deployer, nonce), so the dry-run ordering matches the real broadcast from the same
-deployer. The script reverts early if the `CEILING_TICK` sign is wrong.
+If it prints `Script ran successfully`, you're clear to add `--broadcast`. The LP
+ceiling tick is computed in-script (final round price × 10, sign-aware for the
+token ordering), so there's nothing to set or get wrong.
 
 ## 1) Mock system
 
@@ -84,10 +82,6 @@ them, seeds 1,000 MockUSDC, `init`, `start`, and **prints every address**.
 
 Then:
 1. **VRF** — add the printed `MANAGER` as a consumer on your Chainlink sub + LINK-fund it.
-2. **Check `usdcIsToken0`** in the output. If `true`, the default `CEILING_TICK`
-   sign is likely wrong → run
-   `USDC=<MockUSDC> TMP=<MockToken> npx tsx scripts/calculate-ceiling-tick.ts`,
-   pass it as `CEILING_TICK=…`, and re-run.
 
 ### Wire the off-chain stack (`themoonpot`)
 3. **Contracts** — fill the printed addresses into `packages/contracts/src/mock.ts` (Manager/Token/NFT/Hook/USDC + **Rounds 1–28**).
@@ -148,12 +142,10 @@ The EOA only ever held gas + the seed transiently.
 
 ## Gotchas
 
-- **`CEILING_TICK` is sign-sensitive to token ordering.** This one input flips sign
-  depending on whether USDC sorts above/below TMP, and a wrong sign does **not**
-  revert in `init` — it silently misconfigures the LP ceiling. The script guards
-  against this (reverts early if the sign mismatches the deployed ordering); always
-  dry-run first to learn `usdcIsToken0` and set the right value (`false` → -245880,
-  `true` → 245820).
+- **LP ceiling tick is auto-computed** (final round price × 10, sign-aware for the
+  USDC/TMP ordering — mirrors the manager's own price→tick math). There's no
+  `CEILING_TICK` to set and it can't be the wrong sign; the value is printed in the
+  report (`CEILING TICK`) for verification.
 - **Never share a webhook URL/secret between mock and prod** — `purchaseId` is a
   per-Manager counter, so a mock `purchaseId=5` webhook would otherwise fire
   `processBuy(5)` on the prod Manager. Mock uses its own URL/secret → its own API.
