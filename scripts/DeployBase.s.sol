@@ -158,14 +158,16 @@ contract DeployBase is Script {
 
         // Signer: PRIVATE_KEY env if given, else the CLI --account / --sender.
         uint256 pk = vm.envOr("PRIVATE_KEY", uint256(0));
-        address deployer;
         if (pk != 0) {
-            deployer = vm.addr(pk);
             vm.startBroadcast(pk);
         } else {
-            deployer = msg.sender;
             vm.startBroadcast();
         }
+        // The ACTUAL broadcast sender. With `--account` (and no `--sender`),
+        // msg.sender here is Foundry's default sender, not the wallet — using it
+        // would mis-own the hook and break the wiring. readCallers() returns the
+        // real sender for every signer path.
+        (, address deployer, ) = vm.readCallers();
         // Safe (multisig) to own everything post-deploy. If set, the deployer
         // EOA wires the whole system, then hands all ownership to the Safe (and
         // the company/fee recipient defaults to the Safe).
