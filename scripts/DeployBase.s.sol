@@ -5,6 +5,10 @@ import {Script, console} from "forge-std/Script.sol";
 import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
 import {HookMiner} from "@uniswap/v4-periphery/src/utils/HookMiner.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
+import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
+import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
+import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
+import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../contracts/MoonpotHook.sol";
@@ -16,6 +20,29 @@ import "../contracts/MoonpotRound2.sol";
 import "../contracts/MoonpotRound3.sol";
 import "../contracts/MoonpotRound4.sol";
 import "../contracts/MoonpotRound5.sol";
+import "../contracts/MoonpotRound6.sol";
+import "../contracts/MoonpotRound7.sol";
+import "../contracts/MoonpotRound8.sol";
+import "../contracts/MoonpotRound9.sol";
+import "../contracts/MoonpotRound10.sol";
+import "../contracts/MoonpotRound11.sol";
+import "../contracts/MoonpotRound12.sol";
+import "../contracts/MoonpotRound13.sol";
+import "../contracts/MoonpotRound14.sol";
+import "../contracts/MoonpotRound15.sol";
+import "../contracts/MoonpotRound16.sol";
+import "../contracts/MoonpotRound17.sol";
+import "../contracts/MoonpotRound18.sol";
+import "../contracts/MoonpotRound19.sol";
+import "../contracts/MoonpotRound20.sol";
+import "../contracts/MoonpotRound21.sol";
+import "../contracts/MoonpotRound22.sol";
+import "../contracts/MoonpotRound23.sol";
+import "../contracts/MoonpotRound24.sol";
+import "../contracts/MoonpotRound25.sol";
+import "../contracts/MoonpotRound26.sol";
+import "../contracts/MoonpotRound27.sol";
+import "../contracts/MoonpotRound28.sol";
 import "../contracts/mocks/MockUSDC.sol";
 import "../contracts/mocks/MockToken.sol";
 import "../contracts/mocks/MockNFT.sol";
@@ -26,6 +53,29 @@ import "../contracts/mocks/MockRound2.sol";
 import "../contracts/mocks/MockRound3.sol";
 import "../contracts/mocks/MockRound4.sol";
 import "../contracts/mocks/MockRound5.sol";
+import "../contracts/mocks/MockRound6.sol";
+import "../contracts/mocks/MockRound7.sol";
+import "../contracts/mocks/MockRound8.sol";
+import "../contracts/mocks/MockRound9.sol";
+import "../contracts/mocks/MockRound10.sol";
+import "../contracts/mocks/MockRound11.sol";
+import "../contracts/mocks/MockRound12.sol";
+import "../contracts/mocks/MockRound13.sol";
+import "../contracts/mocks/MockRound14.sol";
+import "../contracts/mocks/MockRound15.sol";
+import "../contracts/mocks/MockRound16.sol";
+import "../contracts/mocks/MockRound17.sol";
+import "../contracts/mocks/MockRound18.sol";
+import "../contracts/mocks/MockRound19.sol";
+import "../contracts/mocks/MockRound20.sol";
+import "../contracts/mocks/MockRound21.sol";
+import "../contracts/mocks/MockRound22.sol";
+import "../contracts/mocks/MockRound23.sol";
+import "../contracts/mocks/MockRound24.sol";
+import "../contracts/mocks/MockRound25.sol";
+import "../contracts/mocks/MockRound26.sol";
+import "../contracts/mocks/MockRound27.sol";
+import "../contracts/mocks/MockRound28.sol";
 
 /// @notice One-shot deploy of the full Moonpot system to Base mainnet.
 ///
@@ -48,6 +98,8 @@ import "../contracts/mocks/MockRound5.sol";
 /// Tunable via env: INITIAL_USDC, CEILING_TICK, COMPANY, VRF_COORDINATOR,
 /// VRF_KEY_HASH, VRF_SUB_ID (or PRIVATE_KEY instead of --account).
 contract DeployBase is Script {
+    using PoolIdLibrary for PoolKey;
+
     // Canonical Base mainnet addresses.
     address constant USDC_BASE = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
     address constant POOL_MANAGER = 0x498581fF718922c3f8e6A244956aF099B2652b2b;
@@ -92,7 +144,14 @@ contract DeployBase is Script {
             deployer = msg.sender;
             vm.startBroadcast();
         }
-        address company = vm.envOr("COMPANY", deployer);
+        // Safe (multisig) to own everything post-deploy. If set, the deployer
+        // EOA wires the whole system, then hands all ownership to the Safe (and
+        // the company/fee recipient defaults to the Safe).
+        address safe = vm.envOr("SAFE", address(0));
+        address company = vm.envOr(
+            "COMPANY",
+            safe == address(0) ? deployer : safe
+        );
 
         // 1. Payment token: MockUSDC (mints 10B to deployer) or live USDC.
         address usdc = mock ? address(new MockUSDC()) : USDC_BASE;
@@ -107,6 +166,17 @@ contract DeployBase is Script {
             tmp = new MoonpotToken();
             nft = new MoonpotNFT();
         }
+
+        // Guard CEILING_TICK against the actual token ordering. The tick sign
+        // depends on whether USDC sorts below TMP; passing the wrong sign does
+        // NOT revert in init() — it silently misconfigures the LP ceiling. Fail
+        // fast here instead. Recompute the value with calculate-ceiling-tick.ts:
+        // usdcIsToken0=false -> -245880, usdcIsToken0=true -> 245820.
+        bool usdcIsToken0 = uint160(usdc) < uint160(address(tmp));
+        require(
+            usdcIsToken0 == (ceilingTick > 0),
+            "CEILING_TICK sign wrong for USDC/TMP ordering"
+        );
 
         // 3. Mine + CREATE2-deploy the hook so its address carries the v4 flags.
         bytes memory args = abi.encode(
@@ -185,56 +255,92 @@ contract DeployBase is Script {
             );
         }
 
-        // 5. Rounds.
-        address r1 = mock
-            ? address(new MockRound1(address(mp), usdc))
-            : address(new MoonpotRound1(address(mp), usdc));
-        address r2 = mock
-            ? address(new MockRound2(address(mp), usdc))
-            : address(new MoonpotRound2(address(mp), usdc));
-        address r3 = mock
-            ? address(new MockRound3(address(mp), usdc))
-            : address(new MoonpotRound3(address(mp), usdc));
-        address r4 = mock
-            ? address(new MockRound4(address(mp), usdc))
-            : address(new MoonpotRound4(address(mp), usdc));
-        address r5 = mock
-            ? address(new MockRound5(address(mp), usdc))
-            : address(new MoonpotRound5(address(mp), usdc));
+        // 5. Rounds (1..28). Each round is its own contract (distinct prize
+        // table), so they're deployed explicitly; setRound is looped below.
+        address[28] memory r;
+        r[0] = mock ? address(new MockRound1(address(mp), usdc)) : address(new MoonpotRound1(address(mp), usdc));
+        r[1] = mock ? address(new MockRound2(address(mp), usdc)) : address(new MoonpotRound2(address(mp), usdc));
+        r[2] = mock ? address(new MockRound3(address(mp), usdc)) : address(new MoonpotRound3(address(mp), usdc));
+        r[3] = mock ? address(new MockRound4(address(mp), usdc)) : address(new MoonpotRound4(address(mp), usdc));
+        r[4] = mock ? address(new MockRound5(address(mp), usdc)) : address(new MoonpotRound5(address(mp), usdc));
+        r[5] = mock ? address(new MockRound6(address(mp), usdc)) : address(new MoonpotRound6(address(mp), usdc));
+        r[6] = mock ? address(new MockRound7(address(mp), usdc)) : address(new MoonpotRound7(address(mp), usdc));
+        r[7] = mock ? address(new MockRound8(address(mp), usdc)) : address(new MoonpotRound8(address(mp), usdc));
+        r[8] = mock ? address(new MockRound9(address(mp), usdc)) : address(new MoonpotRound9(address(mp), usdc));
+        r[9] = mock ? address(new MockRound10(address(mp), usdc)) : address(new MoonpotRound10(address(mp), usdc));
+        r[10] = mock ? address(new MockRound11(address(mp), usdc)) : address(new MoonpotRound11(address(mp), usdc));
+        r[11] = mock ? address(new MockRound12(address(mp), usdc)) : address(new MoonpotRound12(address(mp), usdc));
+        r[12] = mock ? address(new MockRound13(address(mp), usdc)) : address(new MoonpotRound13(address(mp), usdc));
+        r[13] = mock ? address(new MockRound14(address(mp), usdc)) : address(new MoonpotRound14(address(mp), usdc));
+        r[14] = mock ? address(new MockRound15(address(mp), usdc)) : address(new MoonpotRound15(address(mp), usdc));
+        r[15] = mock ? address(new MockRound16(address(mp), usdc)) : address(new MoonpotRound16(address(mp), usdc));
+        r[16] = mock ? address(new MockRound17(address(mp), usdc)) : address(new MoonpotRound17(address(mp), usdc));
+        r[17] = mock ? address(new MockRound18(address(mp), usdc)) : address(new MoonpotRound18(address(mp), usdc));
+        r[18] = mock ? address(new MockRound19(address(mp), usdc)) : address(new MoonpotRound19(address(mp), usdc));
+        r[19] = mock ? address(new MockRound20(address(mp), usdc)) : address(new MoonpotRound20(address(mp), usdc));
+        r[20] = mock ? address(new MockRound21(address(mp), usdc)) : address(new MoonpotRound21(address(mp), usdc));
+        r[21] = mock ? address(new MockRound22(address(mp), usdc)) : address(new MoonpotRound22(address(mp), usdc));
+        r[22] = mock ? address(new MockRound23(address(mp), usdc)) : address(new MoonpotRound23(address(mp), usdc));
+        r[23] = mock ? address(new MockRound24(address(mp), usdc)) : address(new MoonpotRound24(address(mp), usdc));
+        r[24] = mock ? address(new MockRound25(address(mp), usdc)) : address(new MoonpotRound25(address(mp), usdc));
+        r[25] = mock ? address(new MockRound26(address(mp), usdc)) : address(new MoonpotRound26(address(mp), usdc));
+        r[26] = mock ? address(new MockRound27(address(mp), usdc)) : address(new MoonpotRound27(address(mp), usdc));
+        r[27] = mock ? address(new MockRound28(address(mp), usdc)) : address(new MoonpotRound28(address(mp), usdc));
 
         // 6. Wire managers + rounds.
         tmp.setManager(address(mp));
         nft.setManager(address(mp));
         hook.setManager(address(mp));
         nft.setBaseURI("https://api.themoonpot.com/nft/");
-        mp.setRound(1, r1);
-        mp.setRound(2, r2);
-        mp.setRound(3, r3);
-        mp.setRound(4, r4);
-        mp.setRound(5, r5);
+        for (uint256 i = 0; i < r.length; i++) {
+            mp.setRound(i + 1, r[i]);
+        }
 
         // 7. Seed the manager, create the pool, open round 1.
         IERC20(usdc).transfer(address(mp), initialUsdc);
         mp.init(initialUsdc, ceilingTick);
         mp.start();
 
+        // 8. Hand all ownership to the Safe. Every contract is 2-step ownable
+        // (OZ Ownable2Step / Chainlink ConfirmedOwner), so this only *proposes*
+        // the Safe as owner — the Safe must then call acceptOwnership() on each.
+        // Until it does, the deployer remains owner, so keep that key safe.
+        if (safe != address(0)) {
+            tmp.transferOwnership(safe);
+            nft.transferOwnership(safe);
+            hook.transferOwnership(safe);
+            mp.transferOwnership(safe);
+        }
+
         vm.stopBroadcast();
 
-        // 8. Report.
+        // 9. Report.
         console.log(mock ? "=== MOCK deploy ===" : "=== PRODUCTION deploy ===");
         console.log("deployer        %s", deployer);
-        // If usdcIsToken0 is true, the default CEILING_TICK sign is likely wrong
-        // — recompute it (scripts/calculate-ceiling-tick.ts) and re-run.
-        console.log("usdcIsToken0    %s", uint160(usdc) < uint160(address(tmp)));
+        console.log("company         %s", company);
+        console.log("usdcIsToken0    %s", usdcIsToken0);
         console.log("USDC            %s", usdc);
         console.log("TMP             %s", address(tmp));
         console.log("NFT             %s", address(nft));
         console.log("HOOK            %s", address(hook));
         console.log("MANAGER         %s", address(mp));
-        console.log("ROUND1          %s", r1);
-        console.log("ROUND2          %s", r2);
-        console.log("ROUND3          %s", r3);
-        console.log("ROUND4          %s", r4);
-        console.log("ROUND5          %s", r5);
+        (
+            Currency c0,
+            Currency c1,
+            uint24 poolFee,
+            int24 poolTickSpacing,
+            IHooks poolHooks
+        ) = mp.poolKey();
+        PoolKey memory key = PoolKey(c0, c1, poolFee, poolTickSpacing, poolHooks);
+        console.log("POOL ID         %s", vm.toString(PoolId.unwrap(key.toId())));
+        for (uint256 i = 0; i < r.length; i++) {
+            console.log(string.concat("ROUND", vm.toString(i + 1)), r[i]);
+        }
+        if (safe != address(0)) {
+            console.log("OWNER -> SAFE   %s", safe);
+            console.log(
+                "ACTION: Safe must acceptOwnership() on TMP, NFT, HOOK, MANAGER"
+            );
+        }
     }
 }
