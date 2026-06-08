@@ -107,7 +107,8 @@ contract DeployBase is Script {
     // Canonical Base mainnet addresses.
     address constant USDC_BASE = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
     address constant POOL_MANAGER = 0x498581fF718922c3f8e6A244956aF099B2652b2b;
-    address constant POSITION_MANAGER = 0x7C5f5A4bBd8fD63184577525326123B519429bDc;
+    address constant POSITION_MANAGER =
+        0x7C5f5A4bBd8fD63184577525326123B519429bDc;
     address constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
     // Default real Chainlink VRF v2.5 config on Base (override via env).
@@ -130,9 +131,7 @@ contract DeployBase is Script {
     // LP ceiling = final-round price x this multiple.
     uint256 constant CEILING_MULTIPLIER = 10;
 
-    /// @dev Price (USDC, 6dp) -> tick, sign-aware. Mirrors the manager's own
-    /// `_calculateTickFromPrice` so the LP ceiling is computed identically to
-    /// the floor — no manual CEILING_TICK input, and never the wrong sign.
+    /// @dev Price (USDC, 6dp) -> tick, sign-aware.
     function _priceToTick(
         uint256 priceUSDC,
         bool usdcIsToken0
@@ -169,9 +168,9 @@ contract DeployBase is Script {
         // real sender for every signer path.
         (, address deployer, ) = vm.readCallers();
         // Safe (multisig) to own everything post-deploy. If set, the deployer
-        // EOA wires the whole system, then hands all ownership to the Safe (and
-        // the company/fee recipient defaults to the Safe).
+        // EOA wires the whole system, then hands all ownership to the Safe.
         address safe = vm.envOr("SAFE", address(0));
+
         address company = vm.envOr(
             "COMPANY",
             safe == address(0) ? deployer : safe
@@ -274,34 +273,90 @@ contract DeployBase is Script {
         // 5. Rounds (1..28). Each round is its own contract (distinct prize
         // table), so they're deployed explicitly; setRound is looped below.
         address[28] memory r;
-        r[0] = mock ? address(new MockRound1(address(mp), usdc)) : address(new MoonpotRound1(address(mp), usdc));
-        r[1] = mock ? address(new MockRound2(address(mp), usdc)) : address(new MoonpotRound2(address(mp), usdc));
-        r[2] = mock ? address(new MockRound3(address(mp), usdc)) : address(new MoonpotRound3(address(mp), usdc));
-        r[3] = mock ? address(new MockRound4(address(mp), usdc)) : address(new MoonpotRound4(address(mp), usdc));
-        r[4] = mock ? address(new MockRound5(address(mp), usdc)) : address(new MoonpotRound5(address(mp), usdc));
-        r[5] = mock ? address(new MockRound6(address(mp), usdc)) : address(new MoonpotRound6(address(mp), usdc));
-        r[6] = mock ? address(new MockRound7(address(mp), usdc)) : address(new MoonpotRound7(address(mp), usdc));
-        r[7] = mock ? address(new MockRound8(address(mp), usdc)) : address(new MoonpotRound8(address(mp), usdc));
-        r[8] = mock ? address(new MockRound9(address(mp), usdc)) : address(new MoonpotRound9(address(mp), usdc));
-        r[9] = mock ? address(new MockRound10(address(mp), usdc)) : address(new MoonpotRound10(address(mp), usdc));
-        r[10] = mock ? address(new MockRound11(address(mp), usdc)) : address(new MoonpotRound11(address(mp), usdc));
-        r[11] = mock ? address(new MockRound12(address(mp), usdc)) : address(new MoonpotRound12(address(mp), usdc));
-        r[12] = mock ? address(new MockRound13(address(mp), usdc)) : address(new MoonpotRound13(address(mp), usdc));
-        r[13] = mock ? address(new MockRound14(address(mp), usdc)) : address(new MoonpotRound14(address(mp), usdc));
-        r[14] = mock ? address(new MockRound15(address(mp), usdc)) : address(new MoonpotRound15(address(mp), usdc));
-        r[15] = mock ? address(new MockRound16(address(mp), usdc)) : address(new MoonpotRound16(address(mp), usdc));
-        r[16] = mock ? address(new MockRound17(address(mp), usdc)) : address(new MoonpotRound17(address(mp), usdc));
-        r[17] = mock ? address(new MockRound18(address(mp), usdc)) : address(new MoonpotRound18(address(mp), usdc));
-        r[18] = mock ? address(new MockRound19(address(mp), usdc)) : address(new MoonpotRound19(address(mp), usdc));
-        r[19] = mock ? address(new MockRound20(address(mp), usdc)) : address(new MoonpotRound20(address(mp), usdc));
-        r[20] = mock ? address(new MockRound21(address(mp), usdc)) : address(new MoonpotRound21(address(mp), usdc));
-        r[21] = mock ? address(new MockRound22(address(mp), usdc)) : address(new MoonpotRound22(address(mp), usdc));
-        r[22] = mock ? address(new MockRound23(address(mp), usdc)) : address(new MoonpotRound23(address(mp), usdc));
-        r[23] = mock ? address(new MockRound24(address(mp), usdc)) : address(new MoonpotRound24(address(mp), usdc));
-        r[24] = mock ? address(new MockRound25(address(mp), usdc)) : address(new MoonpotRound25(address(mp), usdc));
-        r[25] = mock ? address(new MockRound26(address(mp), usdc)) : address(new MoonpotRound26(address(mp), usdc));
-        r[26] = mock ? address(new MockRound27(address(mp), usdc)) : address(new MoonpotRound27(address(mp), usdc));
-        r[27] = mock ? address(new MockRound28(address(mp), usdc)) : address(new MoonpotRound28(address(mp), usdc));
+        r[0] = mock
+            ? address(new MockRound1(address(mp), usdc))
+            : address(new MoonpotRound1(address(mp), usdc));
+        r[1] = mock
+            ? address(new MockRound2(address(mp), usdc))
+            : address(new MoonpotRound2(address(mp), usdc));
+        r[2] = mock
+            ? address(new MockRound3(address(mp), usdc))
+            : address(new MoonpotRound3(address(mp), usdc));
+        r[3] = mock
+            ? address(new MockRound4(address(mp), usdc))
+            : address(new MoonpotRound4(address(mp), usdc));
+        r[4] = mock
+            ? address(new MockRound5(address(mp), usdc))
+            : address(new MoonpotRound5(address(mp), usdc));
+        r[5] = mock
+            ? address(new MockRound6(address(mp), usdc))
+            : address(new MoonpotRound6(address(mp), usdc));
+        r[6] = mock
+            ? address(new MockRound7(address(mp), usdc))
+            : address(new MoonpotRound7(address(mp), usdc));
+        r[7] = mock
+            ? address(new MockRound8(address(mp), usdc))
+            : address(new MoonpotRound8(address(mp), usdc));
+        r[8] = mock
+            ? address(new MockRound9(address(mp), usdc))
+            : address(new MoonpotRound9(address(mp), usdc));
+        r[9] = mock
+            ? address(new MockRound10(address(mp), usdc))
+            : address(new MoonpotRound10(address(mp), usdc));
+        r[10] = mock
+            ? address(new MockRound11(address(mp), usdc))
+            : address(new MoonpotRound11(address(mp), usdc));
+        r[11] = mock
+            ? address(new MockRound12(address(mp), usdc))
+            : address(new MoonpotRound12(address(mp), usdc));
+        r[12] = mock
+            ? address(new MockRound13(address(mp), usdc))
+            : address(new MoonpotRound13(address(mp), usdc));
+        r[13] = mock
+            ? address(new MockRound14(address(mp), usdc))
+            : address(new MoonpotRound14(address(mp), usdc));
+        r[14] = mock
+            ? address(new MockRound15(address(mp), usdc))
+            : address(new MoonpotRound15(address(mp), usdc));
+        r[15] = mock
+            ? address(new MockRound16(address(mp), usdc))
+            : address(new MoonpotRound16(address(mp), usdc));
+        r[16] = mock
+            ? address(new MockRound17(address(mp), usdc))
+            : address(new MoonpotRound17(address(mp), usdc));
+        r[17] = mock
+            ? address(new MockRound18(address(mp), usdc))
+            : address(new MoonpotRound18(address(mp), usdc));
+        r[18] = mock
+            ? address(new MockRound19(address(mp), usdc))
+            : address(new MoonpotRound19(address(mp), usdc));
+        r[19] = mock
+            ? address(new MockRound20(address(mp), usdc))
+            : address(new MoonpotRound20(address(mp), usdc));
+        r[20] = mock
+            ? address(new MockRound21(address(mp), usdc))
+            : address(new MoonpotRound21(address(mp), usdc));
+        r[21] = mock
+            ? address(new MockRound22(address(mp), usdc))
+            : address(new MoonpotRound22(address(mp), usdc));
+        r[22] = mock
+            ? address(new MockRound23(address(mp), usdc))
+            : address(new MoonpotRound23(address(mp), usdc));
+        r[23] = mock
+            ? address(new MockRound24(address(mp), usdc))
+            : address(new MoonpotRound24(address(mp), usdc));
+        r[24] = mock
+            ? address(new MockRound25(address(mp), usdc))
+            : address(new MoonpotRound25(address(mp), usdc));
+        r[25] = mock
+            ? address(new MockRound26(address(mp), usdc))
+            : address(new MoonpotRound26(address(mp), usdc));
+        r[26] = mock
+            ? address(new MockRound27(address(mp), usdc))
+            : address(new MoonpotRound27(address(mp), usdc));
+        r[27] = mock
+            ? address(new MockRound28(address(mp), usdc))
+            : address(new MoonpotRound28(address(mp), usdc));
 
         // 6. Wire managers + rounds.
         tmp.setManager(address(mp));
@@ -354,8 +409,17 @@ contract DeployBase is Script {
             int24 poolTickSpacing,
             IHooks poolHooks
         ) = mp.poolKey();
-        PoolKey memory key = PoolKey(c0, c1, poolFee, poolTickSpacing, poolHooks);
-        console.log("POOL ID         %s", vm.toString(PoolId.unwrap(key.toId())));
+        PoolKey memory key = PoolKey(
+            c0,
+            c1,
+            poolFee,
+            poolTickSpacing,
+            poolHooks
+        );
+        console.log(
+            "POOL ID         %s",
+            vm.toString(PoolId.unwrap(key.toId()))
+        );
         for (uint256 i = 0; i < r.length; i++) {
             console.log(string.concat("ROUND", vm.toString(i + 1)), r[i]);
         }
