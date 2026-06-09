@@ -291,10 +291,15 @@ async function claimClaimables() {
         done += count;
       }
     } catch (e) {
-      // skip the offending token (e.g. NotOwner / AlreadyClaimed) and continue
-      console.log(
-        `    skip ${toClaim[i]}: ${e?.shortMessage ?? e?.details ?? e?.message ?? e}`,
-      );
+      // skip + surface the raw node reason (shortMessage is just "invalid params")
+      const reason =
+        e?.details ??
+        e?.cause?.details ??
+        e?.metaMessages?.join(" ") ??
+        e?.shortMessage ??
+        e?.message ??
+        String(e);
+      console.log(`    skip ${toClaim[i]}: ${reason}`);
       i += 1;
       skipped += 1;
     }
