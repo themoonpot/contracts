@@ -54,6 +54,11 @@ const DEPLOY_BLOCK = BigInt(process.env.DEPLOY_BLOCK ?? "47063744");
 const LOG_CHUNK = BigInt(process.env.LOG_CHUNK ?? "5000");
 const LOOP = (process.env.LOOP ?? "false") === "true";
 const INTERVAL_MS = Number(process.env.INTERVAL_MS ?? "3600");
+// Max NFTs to claim per cycle (0 = all claimable). claimNFTs is ~600k gas/NFT,
+// so a big CLAIM_BATCH overflows the node's estimateGas cap — batches are sized
+// to GAS_BUDGET instead of trusting CLAIM_BATCH blindly.
+const CLAIM_MAX = Number(process.env.CLAIM_MAX ?? "0");
+const GAS_BUDGET = BigInt(process.env.GAS_BUDGET ?? "18000000");
 
 const usdcAbi = parseAbi([
   "function approve(address spender, uint256 amount) returns (bool)",
@@ -96,6 +101,46 @@ const send = async (req) => {
   const rcpt = await pub.waitForTransactionReceipt({ hash });
   return { hash, status: rcpt.status };
 };
+
+// Send a claimNFTs batch sized to fit GAS_BUDGET: estimate, halving the chunk
+// until the estimate fits (or reverts), down to a single-token claimNFT.
+async function sendClaimBatch(ids) {
+  let chunk = ids;
+  for (;;) {
+    try {
+      const gas = await pub.estimateContractGas({
+        address: MANAGER,
+        abi: managerAbi,
+        functionName: "claimNFTs",
+        args: [chunk],
+        account: account.address,
+      });
+      if (gas <= GAS_BUDGET) {
+        const hash = await wallet.writeContract({
+          address: MANAGER,
+          abi: managerAbi,
+          functionName: "claimNFTs",
+          args: [chunk],
+          gas: (gas * 12n) / 10n,
+        });
+        const rcpt = await pub.waitForTransactionReceipt({ hash });
+        return { count: chunk.length, status: rcpt.status };
+      }
+    } catch {
+      // estimate over the node's cap / reverted — shrink and retry
+    }
+    if (chunk.length <= 1) {
+      const { status } = await send({
+        address: MANAGER,
+        abi: managerAbi,
+        functionName: "claimNFT",
+        args: [chunk[0]],
+      });
+      return { count: 1, status };
+    }
+    chunk = chunk.slice(0, Math.ceil(chunk.length / 2));
+  }
+}
 
 async function buyOnce() {
   const roundId = await read(MANAGER, managerAbi, "_currentRoundId");
@@ -216,14 +261,15 @@ async function claimClaimables() {
     return;
   }
 
+  const toClaim = CLAIM_MAX > 0 ? claimable.slice(0, CLAIM_MAX) : claimable;
   console.log(
-    `  claiming ${claimable.length} NFTs (alternating single/batch)…`,
+    `  claiming ${toClaim.length} of ${claimable.length} claimable NFTs (alternating single/batch)…`,
   );
   let i = 0;
   let batch = false;
-  while (i < claimable.length) {
+  while (i < toClaim.length) {
     if (!batch) {
-      const id = claimable[i];
+      const id = toClaim[i];
       const { status } = await send({
         address: MANAGER,
         abi: managerAbi,
@@ -233,15 +279,11 @@ async function claimClaimables() {
       console.log(`    single claimNFT(${id}) ${status}`);
       i += 1;
     } else {
-      const chunk = claimable.slice(i, i + CLAIM_BATCH);
-      const { status } = await send({
-        address: MANAGER,
-        abi: managerAbi,
-        functionName: "claimNFTs",
-        args: [chunk],
-      });
-      console.log(`    batch claimNFTs([${chunk.length}]) ${status}`);
-      i += chunk.length;
+      const { count, status } = await sendClaimBatch(
+        toClaim.slice(i, i + CLAIM_BATCH),
+      );
+      console.log(`    batch claimNFTs([${count}]) ${status}`);
+      i += count;
     }
     batch = !batch;
   }
