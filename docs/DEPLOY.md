@@ -14,13 +14,13 @@ multisig. No offline mining, no config edits, no params files.
 
 Both use real Chainlink VRF. Plan: **deploy mock → validate → deploy production.**
 
-| | Mock | Production |
-|---|---|---|
-| `MOCK` | `true` | unset |
-| payment token | deploys `MockUSDC` (mints 10B to deployer) | real USDC — deployer must hold `INITIAL_USDC` |
-| contracts | `Mock*` (distinct names) | real `Moonpot*` |
-| ownership | EOA (or a test Safe) | **Safe multisig** (`SAFE=…`) |
-| off-chain | `NETWORK=mock`, `…-relayer-mock`, `*_mock` monitors | `NETWORK=mainnet`, `…-relayer-prod`, prod monitors |
+|               | Mock                                                | Production                                         |
+| ------------- | --------------------------------------------------- | -------------------------------------------------- |
+| `MOCK`        | `true`                                              | unset                                              |
+| payment token | deploys `MockUSDC` (mints 10B to deployer)          | real USDC — deployer must hold `INITIAL_USDC`      |
+| contracts     | `Mock*` (distinct names)                            | real `Moonpot*`                                    |
+| ownership     | EOA (or a test Safe)                                | **Safe multisig** (`SAFE=…`)                       |
+| off-chain     | `NETWORK=mock`, `…-relayer-mock`, `*_mock` monitors | `NETWORK=mainnet`, `…-relayer-prod`, prod monitors |
 
 ---
 
@@ -41,15 +41,16 @@ Both use real Chainlink VRF. Plan: **deploy mock → validate → deploy product
   28 round contracts, the `"The Moonpot"` token name, and `DeployBase`).
 
 ### Tunables (env)
-| var | default | notes |
-|---|---|---|
-| `MOCK` | `false` | `true` = mock system |
-| `SAFE` | none | multisig to receive ownership of all contracts |
-| `VRF_SUB_ID` | — | **required** |
-| `INITIAL_USDC` | `1000e6` | LP seed (base units) |
-| `COMPANY` | `SAFE` if set, else deployer | fee recipient |
-| `VRF_COORDINATOR` / `VRF_KEY_HASH` | Base defaults | real Chainlink VRF |
-| `PRIVATE_KEY` | — | alternative to `--account` |
+
+| var                                | default                      | notes                                          |
+| ---------------------------------- | ---------------------------- | ---------------------------------------------- |
+| `MOCK`                             | `false`                      | `true` = mock system                           |
+| `SAFE`                             | none                         | multisig to receive ownership of all contracts |
+| `VRF_SUB_ID`                       | —                            | **required**                                   |
+| `INITIAL_USDC`                     | `1000e6`                     | LP seed (base units)                           |
+| `COMPANY`                          | `SAFE` if set, else deployer | fee recipient                                  |
+| `VRF_COORDINATOR` / `VRF_KEY_HASH` | Base defaults                | real Chainlink VRF                             |
+| `PRIVATE_KEY`                      | —                            | alternative to `--account`                     |
 
 ---
 
@@ -76,18 +77,21 @@ MOCK=true VRF_SUB_ID=<subId> \
   forge script scripts/DeployBase.s.sol:DeployBase \
   --rpc-url "$BASE_RPC_URL" --account moonpot-deployer --broadcast --verify
 ```
+
 Deploys MockUSDC (mints 10B to the deployer), `MockToken`/`MockNFT`, mines +
 CREATE2-deploys `MockHook`, deploys `MockManager` + **`MockRound1..28`**, wires
 them, seeds 1,000 MockUSDC, `init`, `start`, and **prints every address**.
 
 Then:
+
 1. **VRF** — add the printed `MANAGER` as a consumer on your Chainlink sub + LINK-fund it.
 
 ### Wire the off-chain stack (`themoonpot`)
+
 3. **Contracts** — fill the printed addresses into `packages/contracts/src/mock.ts` (Manager/Token/NFT/Hook/USDC + **Rounds 1–28**).
 4. **Relayer** — add `mainnet-signer-mock` + `base-mainnet-relayer-mock` in `infra/relayer/config.json`; fund that wallet.
 5. **API (mock instance)** — `NETWORK=mock`, `OZ_RELAYER_ID=base-mainnet-relayer-mock`, Base RPC, its own `OZ_WEBHOOK_SECRET` + `DATABASE_URL`.
-6. **Monitor** — set the `MANAGER` address in the five `monitors/*_mock.json`, set `WEBHOOK_PROCESS_URL_MOCK` + `WEBHOOK_SECRET_MOCK` (secret = the mock API's `OZ_WEBHOOK_SECRET`), flip `paused:false`, `docker compose restart monitor`.
+6. **Monitor** — set the `MANAGER` address in the five `monitors/*_mock.json`, set `WEBHOOK_PROCESS_URL` + `WEBHOOK_SECRET` (secret = the mock API's `OZ_WEBHOOK_SECRET`), flip `paused:false`, `docker compose restart monitor`.
 7. **Validate** — drive a buy → `PurchaseCommitted` → VRF → `PurchaseSeedDrawn` → mock webhook → `processBuy` → `PurchaseFilled`. ✅
 
 ---
@@ -102,10 +106,12 @@ SAFE=0xYourSafe VRF_SUB_ID=<subId> \
   forge script scripts/DeployBase.s.sol:DeployBase \
   --rpc-url "$BASE_RPC_URL" --account moonpot-deployer --broadcast --verify
 ```
+
 Same one-shot, with real USDC + real `Moonpot*` contracts, and ownership of every
 contract transferred to the Safe at the end.
 
 Then:
+
 1. **Accept ownership (Safe)** — see the next section. **Required**, or the deployer EOA stays owner.
 2. **VRF** — add `MANAGER` as a consumer + LINK-fund the sub (the Safe should own the subscription).
 3. **Contracts** — update `packages/contracts/src/mainnet.ts` (Manager/Token/NFT/Hook + Rounds 1–28 + pool id).
@@ -129,6 +135,7 @@ Safe must then **accept**:
 > until acceptance is confirmed on-chain.
 
 **In Safe{Wallet} → Transaction Builder, batch one transaction that calls:**
+
 - `acceptOwnership()` on **TMP**
 - `acceptOwnership()` on **NFT**
 - `acceptOwnership()` on **HOOK**
