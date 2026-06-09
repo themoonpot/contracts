@@ -47,10 +47,13 @@ const NFT = getAddress(
 const TOKENS_PER_BUY = BigInt(process.env.TOKENS_PER_BUY ?? "100");
 const BUYS = Number(process.env.BUYS ?? "1");
 const CLAIM = (process.env.CLAIM ?? "true") !== "false";
-const CLAIM_BATCH = Number(process.env.CLAIM_BATCH ?? "10");
+const CLAIM_BATCH = Number(process.env.CLAIM_BATCH ?? "48");
 const DEPLOY_BLOCK = BigInt(process.env.DEPLOY_BLOCK ?? "47063744");
+// eth_getLogs block window per request (Alchemy rejects very wide ranges; the
+// frontend scans in 5k windows). Lower it if your RPC still complains.
+const LOG_CHUNK = BigInt(process.env.LOG_CHUNK ?? "5000");
 const LOOP = (process.env.LOOP ?? "false") === "true";
-const INTERVAL_MS = Number(process.env.INTERVAL_MS ?? "15000");
+const INTERVAL_MS = Number(process.env.INTERVAL_MS ?? "3600");
 
 const usdcAbi = parseAbi([
   "function approve(address spender, uint256 amount) returns (bool)",
@@ -72,13 +75,19 @@ const roundAbi = parseAbi([
   "function getEndTime() view returns (uint256)",
   "function getSeed() view returns (uint256)",
 ]);
-const nftAbi = parseAbi(["function getRound(uint256 tokenId) view returns (uint256)"]);
+const nftAbi = parseAbi([
+  "function getRound(uint256 tokenId) view returns (uint256)",
+]);
 const transferEvent = parseAbiItem(
   "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
 );
 
 const pub = createPublicClient({ chain: base, transport: http(RPC_URL) });
-const wallet = createWalletClient({ account, chain: base, transport: http(RPC_URL) });
+const wallet = createWalletClient({
+  account,
+  chain: base,
+  transport: http(RPC_URL),
+});
 
 const read = (address, abi, functionName, args) =>
   pub.readContract({ address, abi, functionName, args });
@@ -106,10 +115,18 @@ async function buyOnce() {
   if (tokens > MAX_PURCHASE_LIMIT) tokens = MAX_PURCHASE_LIMIT;
   const usdcAmount = price * tokens;
 
-  const allowance = await read(USDC, usdcAbi, "allowance", [account.address, MANAGER]);
+  const allowance = await read(USDC, usdcAbi, "allowance", [
+    account.address,
+    MANAGER,
+  ]);
   if (allowance < usdcAmount) {
     console.log("  approving USDC (max)…");
-    await send({ address: USDC, abi: usdcAbi, functionName: "approve", args: [MANAGER, maxUint256] });
+    await send({
+      address: USDC,
+      abi: usdcAbi,
+      functionName: "approve",
+      args: [MANAGER, maxUint256],
+    });
   }
 
   const { hash, status } = await send({
@@ -118,16 +135,20 @@ async function buyOnce() {
     functionName: "buyFor",
     args: [account.address, usdcAmount, 0n, 0, ZERO32, ZERO32],
   });
-  console.log(`  bought ${tokens} TMP in round ${roundId} (${hash.slice(0, 10)}… ${status})`);
+  console.log(
+    `  bought ${tokens} TMP in round ${roundId} (${hash.slice(
+      0,
+      10,
+    )}… ${status})`,
+  );
   return true;
 }
 
 async function ownedTokenIds() {
   const latest = await pub.getBlockNumber();
   const ids = [];
-  const CHUNK = 100_000n;
-  for (let from = DEPLOY_BLOCK; from <= latest; from += CHUNK + 1n) {
-    const to = from + CHUNK > latest ? latest : from + CHUNK;
+  for (let from = DEPLOY_BLOCK; from <= latest; from += LOG_CHUNK + 1n) {
+    const to = from + LOG_CHUNK > latest ? latest : from + LOG_CHUNK;
     const logs = await pub.getLogs({
       address: NFT,
       event: transferEvent,
@@ -143,12 +164,19 @@ async function ownedTokenIds() {
 async function claimClaimables() {
   const owned = await ownedTokenIds();
   if (owned.length === 0) {
-    console.log("  no NFTs owned yet (buy -> VRF -> relayer processBuy mints them)");
+    console.log(
+      "  no NFTs owned yet (buy -> VRF -> relayer processBuy mints them)",
+    );
     return;
   }
 
   const rounds = await pub.multicall({
-    contracts: owned.map((id) => ({ address: NFT, abi: nftAbi, functionName: "getRound", args: [id] })),
+    contracts: owned.map((id) => ({
+      address: NFT,
+      abi: nftAbi,
+      functionName: "getRound",
+      args: [id],
+    })),
   });
   const claimedFlags = await pub.multicall({
     contracts: owned.map((id, i) => ({
@@ -174,29 +202,44 @@ async function claimClaimables() {
 
   const claimable = [];
   for (let i = 0; i < owned.length; i++) {
-    if (rounds[i].status !== "success" || claimedFlags[i].status !== "success") continue;
+    if (rounds[i].status !== "success" || claimedFlags[i].status !== "success")
+      continue;
     const roundId = rounds[i].result;
     if (roundId === 0n || claimedFlags[i].result) continue;
     if (await ready(roundId)) claimable.push(owned[i]);
   }
 
   if (claimable.length === 0) {
-    console.log(`  own ${owned.length} NFTs, 0 claimable (rounds must end + be seeded)`);
+    console.log(
+      `  own ${owned.length} NFTs, 0 claimable (rounds must end + be seeded)`,
+    );
     return;
   }
 
-  console.log(`  claiming ${claimable.length} NFTs (alternating single/batch)…`);
+  console.log(
+    `  claiming ${claimable.length} NFTs (alternating single/batch)…`,
+  );
   let i = 0;
   let batch = false;
   while (i < claimable.length) {
     if (!batch) {
       const id = claimable[i];
-      const { status } = await send({ address: MANAGER, abi: managerAbi, functionName: "claimNFT", args: [id] });
+      const { status } = await send({
+        address: MANAGER,
+        abi: managerAbi,
+        functionName: "claimNFT",
+        args: [id],
+      });
       console.log(`    single claimNFT(${id}) ${status}`);
       i += 1;
     } else {
       const chunk = claimable.slice(i, i + CLAIM_BATCH);
-      const { status } = await send({ address: MANAGER, abi: managerAbi, functionName: "claimNFTs", args: [chunk] });
+      const { status } = await send({
+        address: MANAGER,
+        abi: managerAbi,
+        functionName: "claimNFTs",
+        args: [chunk],
+      });
       console.log(`    batch claimNFTs([${chunk.length}]) ${status}`);
       i += chunk.length;
     }
@@ -212,7 +255,9 @@ async function cycle() {
 async function main() {
   const usdcBal = await read(USDC, usdcAbi, "balanceOf", [account.address]);
   console.log(`driver buyer=${account.address} MockUSDC bal=${usdcBal}`);
-  console.log(`manager=${MANAGER} loop=${LOOP} buys/cycle=${BUYS} tokens/buy=${TOKENS_PER_BUY}`);
+  console.log(
+    `manager=${MANAGER} loop=${LOOP} buys/cycle=${BUYS} tokens/buy=${TOKENS_PER_BUY}`,
+  );
   do {
     try {
       await cycle();
