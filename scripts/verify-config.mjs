@@ -2,13 +2,19 @@
 // Round 1's full valueOf sweep (verify-rounds.mjs) already proves the permutation
 // distributes the table correctly; rounds 2-28 share the identical
 // AbstractMoonpotRound logic, so for them it suffices to verify the configured
-// numbers: 99991 NFTs, the prize table sums to the pool, and prizes scale
-// (round1 prize x allocation/1M). ~32 getNFTClass reads per round, so it runs
+// numbers: 99991 NFTs, the reward table sums to the pool, and rewards scale
+// (round1 reward x allocation/1M). ~32 getNFTClass reads per round, so it runs
 // fine straight against Base.
 //
 //   RPC_URL=https://base-mainnet... node scripts/verify-config.mjs
 //   ROUNDS=1-28 / ROUNDS=7 ...   MANAGER=0x.. (default mock)
-import { createPublicClient, http, parseAbi, getAddress, formatUnits } from "viem";
+import {
+  createPublicClient,
+  http,
+  parseAbi,
+  getAddress,
+  formatUnits,
+} from "viem";
 import { base } from "viem/chains";
 
 const need = (k) => {
@@ -26,8 +32,10 @@ const MAX_ROUNDS = Number(process.env.MAX_ROUNDS ?? "28");
 const COMMUNITY = 1_000_000n; // $1.00 / token (flat, all rounds)
 const COMPANY = 100_000n; //   $0.10 / token (flat)
 const NFT_TOTAL = 99_991n;
-// Fixed class shape (counts) shared by every round; only prizes scale.
-const COUNTS = [1, 2, 3, 5, 10, 20, 50, 100, 300, 500, 1000, 3000, 5000, 10000, 30000, 50000];
+// Fixed class shape (counts) shared by every round; only rewards scale.
+const COUNTS = [
+  1, 2, 3, 5, 10, 20, 50, 100, 300, 500, 1000, 3000, 5000, 10000, 30000, 50000,
+];
 const CUM = (() => {
   const out = [];
   let a = 0;
@@ -55,7 +63,9 @@ const read = (address, abi, functionName, args) =>
   pub.readContract({ address, abi, functionName, args });
 const usd = (x) =>
   "$" +
-  Number(formatUnits(x, 6)).toLocaleString("en-US", { maximumFractionDigits: 2 });
+  Number(formatUnits(x, 6)).toLocaleString("en-US", {
+    maximumFractionDigits: 2,
+  });
 
 function parseRounds(spec) {
   if (!spec || spec === "all")
@@ -90,7 +100,10 @@ async function readTable(round) {
   const at = new Map();
   idx.forEach((index, k) => {
     const r = res[k];
-    at.set(index, { classId: Number(r.classId ?? r[0]), value: BigInt(r.usdcValue ?? r[1]) });
+    at.set(index, {
+      classId: Number(r.classId ?? r[0]),
+      value: BigInt(r.usdcValue ?? r[1]),
+    });
   });
   return at;
 }
@@ -107,8 +120,10 @@ async function verifyRound(r, round, base) {
   const table = await readTable(round);
 
   const errs = [];
-  if (nftCount !== NFT_TOTAL) errs.push(`NFT count ${nftCount} != ${NFT_TOTAL}`);
-  if (community !== COMMUNITY) errs.push(`community ${community} != ${COMMUNITY}`);
+  if (nftCount !== NFT_TOTAL)
+    errs.push(`NFT count ${nftCount} != ${NFT_TOTAL}`);
+  if (community !== COMMUNITY)
+    errs.push(`community ${community} != ${COMMUNITY}`);
   if (company !== COMPANY) errs.push(`company ${company} != ${COMPANY}`);
   const liquidity = price - community - company;
   if (liquidity < 0n) errs.push(`liquidity share negative (price ${price})`);
@@ -116,8 +131,8 @@ async function verifyRound(r, round, base) {
     errs.push(`tokenCount ${tokenCount} not a whole-million allocation`);
   const mult = tokenCount / 1_000_000n;
 
-  // class boundaries + prizes
-  const prizes = [];
+  // class boundaries + rewards
+  const rewards = [];
   for (let i = 0; i < 16; i++) {
     const last = table.get(CUM[i] - 1); // last NFT of class i+1
     const next = table.get(CUM[i]); //     first NFT of class i+2 (or None)
@@ -126,19 +141,24 @@ async function verifyRound(r, round, base) {
     const expectNext = i < 15 ? i + 2 : 0; // last boundary -> None (draw >= total)
     if (next.classId !== expectNext)
       errs.push(`boundary@${CUM[i]} = ${next.classId}, expected ${expectNext}`);
-    prizes.push(last.value);
+    rewards.push(last.value);
   }
 
   // table totals + scaling vs round 1
   let tableSum = 0n;
-  for (let i = 0; i < 16; i++) tableSum += BigInt(COUNTS[i]) * prizes[i];
+  for (let i = 0; i < 16; i++) tableSum += BigInt(COUNTS[i]) * rewards[i];
   if (tableSum !== pool)
-    errs.push(`table sum $${formatUnits(tableSum, 6)} != pool $${formatUnits(pool, 6)}`);
+    errs.push(
+      `table sum $${formatUnits(tableSum, 6)} != pool $${formatUnits(pool, 6)}`,
+    );
   if (base) {
     for (let i = 0; i < 16; i++) {
-      if (prizes[i] !== base[i] * mult)
+      if (rewards[i] !== base[i] * mult)
         errs.push(
-          `class ${i + 1} prize $${formatUnits(prizes[i], 6)} != $${formatUnits(base[i] * mult, 6)} (base x${mult})`,
+          `class ${i + 1} reward $${formatUnits(
+            rewards[i],
+            6,
+          )} != $${formatUnits(base[i] * mult, 6)} (base x${mult})`,
         );
     }
   }
@@ -149,12 +169,21 @@ async function verifyRound(r, round, base) {
 
   const tag = errs.length === 0 ? "OK  " : "FAIL";
   console.log(
-    `round ${String(r).padStart(2)}: ${tag}  price $${formatUnits(price, 6)}  alloc ${String(tokenCount / 1_000_000n).padStart(4)}M  NFTs ${nftCount}  raised ${usd(raised).padStart(15)}  prizes ${usd(pool).padStart(15)}`,
+    `round ${String(r).padStart(2)}: ${tag}  price $${formatUnits(
+      price,
+      6,
+    )}  alloc ${String(tokenCount / 1_000_000n).padStart(
+      4,
+    )}M  NFTs ${nftCount}  raised ${usd(raised).padStart(15)}  rewards ${usd(
+      pool,
+    ).padStart(15)}  company ${usd(companyTotal).padStart(13)}  liquidity ${usd(
+      liquidityTotal,
+    ).padStart(15)}`,
   );
   for (const e of errs) console.log(`         - ${e}`);
   return {
     ok: errs.length === 0,
-    prizes,
+    rewards,
     tokenCount,
     nftCount,
     pool,
@@ -166,14 +195,25 @@ async function verifyRound(r, round, base) {
 
 async function main() {
   const toVerify = parseRounds(process.env.ROUNDS);
-  console.log(`manager=${MANAGER}  rounds=${toVerify[0]}..${toVerify[toVerify.length - 1]}`);
+  console.log(
+    `manager=${MANAGER}  rounds=${toVerify[0]}..${
+      toVerify[toVerify.length - 1]
+    }`,
+  );
 
   // round 1 is the scaling base
   const round1 = await read(MANAGER, managerAbi, "rounds", [1n]);
   const r1 = await verifyRound(1, round1, null);
-  const base = r1.prizes;
+  const base = r1.rewards;
 
-  const totals = { alloc: 0n, nfts: 0n, pool: 0n, raised: 0n, company: 0n, liquidity: 0n };
+  const totals = {
+    alloc: 0n,
+    nfts: 0n,
+    pool: 0n,
+    raised: 0n,
+    company: 0n,
+    liquidity: 0n,
+  };
   const add = (f) => {
     totals.alloc += f.tokenCount;
     totals.nfts += f.nftCount;
@@ -204,7 +244,11 @@ async function main() {
   }
 
   console.log(
-    `\nTOTALS (${total} rounds): raised ${usd(totals.raised)}  alloc ${totals.alloc / 1_000_000n}M TMP  NFTs ${totals.nfts}  prizes ${usd(totals.pool)}  company ${usd(totals.company)}  liquidity ${usd(totals.liquidity)}`,
+    `\nTOTALS (${total} rounds): raised ${usd(totals.raised)}  alloc ${
+      totals.alloc / 1_000_000n
+    }M TMP  NFTs ${totals.nfts}  rewards ${usd(totals.pool)}  company ${usd(
+      totals.company,
+    )}  liquidity ${usd(totals.liquidity)}`,
   );
   console.log(`${pass}/${total} rounds OK`);
   if (pass !== total) process.exit(1);
