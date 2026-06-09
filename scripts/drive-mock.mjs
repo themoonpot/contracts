@@ -53,7 +53,7 @@ const DEPLOY_BLOCK = BigInt(process.env.DEPLOY_BLOCK ?? "47063744");
 // frontend scans in 5k windows). Lower it if your RPC still complains.
 const LOG_CHUNK = BigInt(process.env.LOG_CHUNK ?? "5000");
 const LOOP = (process.env.LOOP ?? "false") === "true";
-const INTERVAL_MS = Number(process.env.INTERVAL_MS ?? "3600");
+const INTERVAL_MS = Number(process.env.INTERVAL_MS ?? "6000");
 // Max NFTs to claim per cycle (0 = all claimable). claimNFTs is ~600k gas/NFT,
 // so a big CLAIM_BATCH overflows the node's estimateGas cap — batches are sized
 // to GAS_BUDGET instead of trusting CLAIM_BATCH blindly.
@@ -96,10 +96,41 @@ const wallet = createWalletClient({
 
 const read = (address, abi, functionName, args) =>
   pub.readContract({ address, abi, functionName, args });
+// Sequential sender with an explicit, locally-tracked nonce + retry, so
+// back-to-back txs from the one buyer key don't race into "replacement
+// transaction underpriced" (Base's pending-nonce view lags after each tx).
+let nonce;
+const syncNonce = async () => {
+  nonce = await pub.getTransactionCount({
+    address: account.address,
+    blockTag: "pending",
+  });
+};
 const send = async (req) => {
-  const hash = await wallet.writeContract(req);
-  const rcpt = await pub.waitForTransactionReceipt({ hash });
-  return { hash, status: rcpt.status };
+  if (nonce === undefined) await syncNonce();
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const hash = await wallet.writeContract({ ...req, nonce });
+      const rcpt = await pub.waitForTransactionReceipt({ hash });
+      nonce += 1;
+      return { hash, status: rcpt.status };
+    } catch (e) {
+      const m = `${e?.details ?? ""} ${e?.shortMessage ?? ""} ${
+        e?.message ?? ""
+      }`.toLowerCase();
+      const retryable =
+        m.includes("nonce") ||
+        m.includes("replacement") ||
+        m.includes("already known") ||
+        m.includes("underpriced");
+      if (attempt < 4 && retryable) {
+        await syncNonce();
+        await sleep(800);
+        continue;
+      }
+      throw e;
+    }
+  }
 };
 
 // Send a claimNFTs batch sized to fit GAS_BUDGET: estimate, halving the chunk
@@ -116,15 +147,14 @@ async function sendClaimBatch(ids) {
         account: account.address,
       });
       if (gas <= GAS_BUDGET) {
-        const hash = await wallet.writeContract({
+        const { status } = await send({
           address: MANAGER,
           abi: managerAbi,
           functionName: "claimNFTs",
           args: [chunk],
           gas: (gas * 12n) / 10n,
         });
-        const rcpt = await pub.waitForTransactionReceipt({ hash });
-        return { count: chunk.length, status: rcpt.status };
+        return { count: chunk.length, status };
       }
     } catch {
       // estimate over the node's cap / reverted — shrink and retry
