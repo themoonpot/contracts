@@ -267,26 +267,40 @@ async function claimClaimables() {
   );
   let i = 0;
   let batch = false;
+  let done = 0;
+  let skipped = 0;
   while (i < toClaim.length) {
-    if (!batch) {
-      const id = toClaim[i];
-      const { status } = await send({
-        address: MANAGER,
-        abi: managerAbi,
-        functionName: "claimNFT",
-        args: [id],
-      });
-      console.log(`    single claimNFT(${id}) ${status}`);
-      i += 1;
-    } else {
-      const { count, status } = await sendClaimBatch(
-        toClaim.slice(i, i + CLAIM_BATCH),
+    try {
+      if (!batch) {
+        const id = toClaim[i];
+        const { status } = await send({
+          address: MANAGER,
+          abi: managerAbi,
+          functionName: "claimNFT",
+          args: [id],
+        });
+        console.log(`    single claimNFT(${id}) ${status}`);
+        i += 1;
+        done += 1;
+      } else {
+        const { count, status } = await sendClaimBatch(
+          toClaim.slice(i, i + CLAIM_BATCH),
+        );
+        console.log(`    batch claimNFTs([${count}]) ${status}`);
+        i += count;
+        done += count;
+      }
+    } catch (e) {
+      // skip the offending token (e.g. NotOwner / AlreadyClaimed) and continue
+      console.log(
+        `    skip ${toClaim[i]}: ${e?.shortMessage ?? e?.details ?? e?.message ?? e}`,
       );
-      console.log(`    batch claimNFTs([${count}]) ${status}`);
-      i += count;
+      i += 1;
+      skipped += 1;
     }
     batch = !batch;
   }
+  console.log(`  done: claimed ${done}, skipped ${skipped}`);
 }
 
 async function cycle() {
