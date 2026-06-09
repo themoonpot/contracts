@@ -370,8 +370,9 @@ contract DeployBase is Script {
         // 7. Seed the manager, create the pool, open round 1. The LP ceiling
         // tick is derived from the final round price x CEILING_MULTIPLIER,
         // sign-aware — no manual input, always the right sign for the ordering.
+        uint256 finalPrice = IMoonpotRound(r[27]).getPricePerToken();
         int24 ceilingTick = _priceToTick(
-            IMoonpotRound(r[27]).getPricePerToken() * CEILING_MULTIPLIER,
+            finalPrice * CEILING_MULTIPLIER,
             usdcIsToken0
         );
         IERC20(usdc).transfer(address(mp), initialUsdc);
@@ -395,6 +396,17 @@ contract DeployBase is Script {
         console.log(mock ? "=== MOCK deploy ===" : "=== PRODUCTION deploy ===");
         console.log("deployer        %s", deployer);
         console.log("company         %s", company);
+        console.log("safe            %s", safe);
+        console.log(
+            "INITIAL USDC    %s USDC (%s base units)",
+            initialUsdc / 1e6,
+            initialUsdc
+        );
+        console.log("FINAL PRICE     %s (base units)", finalPrice);
+        console.log("CEILING MULT    %s", CEILING_MULTIPLIER);
+        console.log("VRF SUB ID      %s", vrfSubId);
+        console.log("VRF COORD       %s", vrfCoordinator);
+        console.log("VRF KEYHASH     %s", vm.toString(vrfKeyHash));
         console.log("usdcIsToken0    %s", usdcIsToken0);
         console.log("CEILING TICK    %s", vm.toString(int256(ceilingTick)));
         console.log("USDC            %s", usdc);
