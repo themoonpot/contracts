@@ -53,6 +53,9 @@ const roundAbi = parseAbi([
 const pub = createPublicClient({ chain: base, transport: http(RPC_URL) });
 const read = (address, abi, functionName, args) =>
   pub.readContract({ address, abi, functionName, args });
+const usd = (x) =>
+  "$" +
+  Number(formatUnits(x, 6)).toLocaleString("en-US", { maximumFractionDigits: 2 });
 
 function parseRounds(spec) {
   if (!spec || spec === "all")
@@ -140,12 +143,25 @@ async function verifyRound(r, round, base) {
     }
   }
 
-  const tag = errs.length === 0 ? "OK" : "FAIL";
+  const raised = tokenCount * price;
+  const companyTotal = tokenCount * company;
+  const liquidityTotal = tokenCount * liquidity;
+
+  const tag = errs.length === 0 ? "OK  " : "FAIL";
   console.log(
-    `round ${String(r).padStart(2)}: ${tag}  price $${formatUnits(price, 6)}  alloc ${tokenCount / 1_000_000n}M  NFTs ${nftCount}  pool $${formatUnits(pool, 6)}  (table $${formatUnits(tableSum, 6)})`,
+    `round ${String(r).padStart(2)}: ${tag}  price $${formatUnits(price, 6)}  alloc ${String(tokenCount / 1_000_000n).padStart(4)}M  NFTs ${nftCount}  raised ${usd(raised).padStart(15)}  prizes ${usd(pool).padStart(15)}`,
   );
   for (const e of errs) console.log(`         - ${e}`);
-  return { ok: errs.length === 0, prizes };
+  return {
+    ok: errs.length === 0,
+    prizes,
+    tokenCount,
+    nftCount,
+    pool,
+    raised,
+    companyTotal,
+    liquidityTotal,
+  };
 }
 
 async function main() {
@@ -154,10 +170,26 @@ async function main() {
 
   // round 1 is the scaling base
   const round1 = await read(MANAGER, managerAbi, "rounds", [1n]);
-  const base = (await verifyRound(1, round1, null)).prizes;
+  const r1 = await verifyRound(1, round1, null);
+  const base = r1.prizes;
 
-  let pass = toVerify.includes(1) ? 1 : 0;
-  let total = toVerify.includes(1) ? 1 : 0;
+  const totals = { alloc: 0n, nfts: 0n, pool: 0n, raised: 0n, company: 0n, liquidity: 0n };
+  const add = (f) => {
+    totals.alloc += f.tokenCount;
+    totals.nfts += f.nftCount;
+    totals.pool += f.pool;
+    totals.raised += f.raised;
+    totals.company += f.companyTotal;
+    totals.liquidity += f.liquidityTotal;
+  };
+
+  let pass = 0;
+  let total = 0;
+  if (toVerify.includes(1)) {
+    total += 1;
+    if (r1.ok) pass += 1;
+    add(r1);
+  }
   for (const r of toVerify) {
     if (r === 1) continue;
     const round = await read(MANAGER, managerAbi, "rounds", [BigInt(r)]);
@@ -165,10 +197,16 @@ async function main() {
       console.log(`round ${r}: not set — stop`);
       break;
     }
+    const f = await verifyRound(r, round, base);
     total += 1;
-    if ((await verifyRound(r, round, base)).ok) pass += 1;
+    if (f.ok) pass += 1;
+    add(f);
   }
-  console.log(`\n${pass}/${total} rounds OK`);
+
+  console.log(
+    `\nTOTALS (${total} rounds): raised ${usd(totals.raised)}  alloc ${totals.alloc / 1_000_000n}M TMP  NFTs ${totals.nfts}  prizes ${usd(totals.pool)}  company ${usd(totals.company)}  liquidity ${usd(totals.liquidity)}`,
+  );
+  console.log(`${pass}/${total} rounds OK`);
   if (pass !== total) process.exit(1);
 }
 
